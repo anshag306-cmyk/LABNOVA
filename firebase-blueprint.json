@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "pathology_patients": {
+      "title": "Pathology Patients",
+      "description": "Registered patients undergoing clinical diagnostics and pathology examinations",
+      "type": "object",
+      "properties": {
+        "uhid": { "type": "string", "description": "Unique Healthcare Identification ID" },
+        "fullName": { "type": "string", "description": "Patient's full name" },
+        "age": { "type": "number", "description": "Patient age in years" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "phone": { "type": "string", "description": "Contact telephone number" },
+        "email": { "type": "string", "description": "Email address" },
+        "address": { "type": "string", "description": "Residential address" },
+        "bloodGroup": { "type": "string", "description": "Blood group ABO/Rh" },
+        "referredBy": { "type": "string", "description": "Referring physician or clinic" },
+        "registeredAt": { "type": "string", "description": "ISO timestamp of registration" },
+        "notes": { "type": "string", "description": "Clinical history or special remarks" }
+      },
+      "required": ["uhid", "fullName", "age", "gender", "phone"]
+    },
+    "pathology_reports": {
+      "title": "Pathology Diagnostic Reports",
+      "description": "Clinical laboratory diagnostic investigation orders, test results, and verified reports",
+      "type": "object",
+      "properties": {
+        "reportId": { "type": "string", "description": "Unique report accession identifier" },
+        "patientId": { "type": "string", "description": "Firestore patient document ID" },
+        "patientUHID": { "type": "string", "description": "Patient UHID" },
+        "patientName": { "type": "string", "description": "Patient full name" },
+        "patientAge": { "type": "number", "description": "Patient age" },
+        "patientGender": { "type": "string", "description": "Gender" },
+        "patientPhone": { "type": "string", "description": "Patient phone" },
+        "referringDoctor": { "type": "string", "description": "Consulting doctor" },
+        "sampleType": { "type": "string", "description": "Specimen biological matrix" },
+        "sampleBarcode": { "type": "string", "description": "Barcode identifier" },
+        "sampleCollectionTime": { "type": "string", "description": "Specimen draw timestamp" },
+        "testNames": { "type": "array", "description": "List of test titles" },
+        "results": { "type": "array", "description": "Parameter values, reference intervals, units, and flags" },
+        "clinicalNotes": { "type": "string", "description": "Diagnostic interpretation" },
+        "status": { "type": "string", "enum": ["sample_collected", "processing", "completed", "verified", "delivered"] },
+        "verifiedBy": { "type": "string", "description": "Consultant Pathologist Name and Reg" },
+        "verifiedAt": { "type": "string", "description": "Verification timestamp" },
+        "digitalSignatureHash": { "type": "string", "description": "SHA-256 verification hash" },
+        "totalAmount": { "type": "number", "description": "Total billing amount" },
+        "paidAmount": { "type": "number", "description": "Paid amount" },
+        "paymentStatus": { "type": "string", "enum": ["paid", "pending", "partial"] },
+        "createdAt": { "type": "string", "description": "Creation ISO date" },
+        "updatedAt": { "type": "string", "description": "Last modified ISO date" }
+      },
+      "required": ["reportId", "patientName", "status", "testNames"]
+    },
+    "pathology_test_templates": {
+      "title": "Pathology Test Catalog",
+      "description": "Standard diagnostic profiles, parameters, biological reference intervals, and units",
+      "type": "object",
+      "properties": {
+        "testCode": { "type": "string", "description": "Diagnostic procedure code" },
+        "testName": { "type": "string", "description": "Full diagnostic panel name" },
+        "category": { "type": "string", "description": "Hematology, Biochemistry, Immunology, Urinalysis, Serology, Microbiology" },
+        "sampleType": { "type": "string", "description": "Specimen required" },
+        "price": { "type": "number", "description": "Standard tariff price" },
+        "tatHours": { "type": "number", "description": "Turnaround time in hours" },
+        "parameters": { "type": "array", "description": "List of measurable parameters with reference intervals" }
+      }
+    }
+  }
+}

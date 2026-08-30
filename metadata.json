@@ -1,0 +1,6 @@
+{
+  "name": "LabNova",
+  "description": "Comprehensive Pathology Laboratory Management System & LIMS featuring real-time Firebase patient registration, clinical report builder, PDF generation, diagnostic analytics, and research workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
