@@ -17,6 +17,7 @@ import {
 import { PathologyReport, LabSettings, PaymentStatus } from '../../types';
 import { generateInvoicePdf } from '../../services/pdfReportGenerator';
 import { updateReportInFirestore } from '../../services/pathologyFirebase';
+import { useAuth } from '../../context/AuthContext';
 
 interface PathologyBillingViewProps {
   reports: PathologyReport[];
@@ -29,6 +30,7 @@ export const PathologyBillingView: React.FC<PathologyBillingViewProps> = ({
   settings,
   onViewReport,
 }) => {
+  const { currentLab, isAdmin, isStaff } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -76,15 +78,19 @@ export const PathologyBillingView: React.FC<PathologyBillingViewProps> = ({
       const totalAmt = report.billing?.totalAmount || 0;
       const discountAmt = report.billing?.discount || 0;
       const netPayable = totalAmt - discountAmt;
-      await updateReportInFirestore(report.id, {
-        billing: {
-          totalAmount: totalAmt,
-          discount: discountAmt,
-          paidAmount: netPayable,
-          paymentStatus: 'paid',
-          paymentMode: report.billing?.paymentMode || 'UPI',
+      await updateReportInFirestore(
+        report.id,
+        {
+          billing: {
+            totalAmount: totalAmt,
+            discount: discountAmt,
+            paidAmount: netPayable,
+            paymentStatus: 'paid',
+            paymentMode: report.billing?.paymentMode || 'UPI',
+          },
         },
-      });
+        currentLab.id
+      );
     } catch (err) {
       console.error('Failed to update payment status:', err);
     } finally {

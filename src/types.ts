@@ -204,8 +204,52 @@ export interface DiagnosticResult {
 
 export type PatientGender = 'Male' | 'Female' | 'Other';
 
+export type UserRole = 'admin' | 'staff' | 'superadmin';
+
+export interface LabUser {
+  id: string; // Auth UID or doc ID
+  email: string;
+  displayName: string;
+  name?: string;
+  role: UserRole;
+  labId: string;
+  department?: string;
+  phone?: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+}
+
+export interface Laboratory {
+  id: string; // Unique tenant identifier, e.g. 'lab-nova-main'
+  name: string;
+  tagline: string;
+  code: string; // Short code, e.g. 'LNV', 'APX'
+  logoUrl?: string;
+  phone: string;
+  email: string;
+  website?: string;
+  address: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  licenseNumber: string;
+  nablCertNumber: string;
+  taxId?: string;
+  pathologistName: string;
+  pathologistQualification: string;
+  pathologistRegistration: string;
+  technologistName: string;
+  technologistQualification: string;
+  currency: string;
+  headerColor: string;
+  createdAt: string;
+  ownerEmail?: string;
+  status: 'active' | 'pending' | 'suspended';
+}
+
 export interface PathologyPatient {
   id: string; // Firestore document ID
+  labId?: string; // Tenant identifier
   uhid: string; // Unique Healthcare ID, e.g. UHID-2026-0142
   fullName: string;
   age: number;
@@ -246,8 +290,10 @@ export type PathologyCategory =
   | 'Coagulation';
 
 export interface LabSettings {
+  labId?: string; // Tenant identifier
   labName: string;
   tagline: string;
+  logoUrl?: string;
   accreditationText: string;
   licenseNumber: string;
   nablCertNumber: string;
@@ -267,6 +313,7 @@ export interface LabSettings {
 
 export interface TestTemplate {
   id: string;
+  labId?: string; // Tenant identifier for customized tariffs
   testCode: string;
   testName: string;
   category: PathologyCategory;
@@ -313,6 +360,7 @@ export interface ReportBilling {
 
 export interface PathologyReport {
   id: string; // Firestore document ID
+  labId?: string; // Tenant identifier
   reportId: string; // e.g. RPT-2026-0921
   patientId: string;
   patientUHID: string;

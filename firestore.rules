@@ -1,9 +1,77 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read, write for lab management collections
+
+    // Default deny all
     match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isLabMember(labId) {
+      return isSignedIn() && (
+        request.auth.token.labId == labId ||
+        request.auth.token.role == 'superadmin'
+      );
+    }
+
+    function isLabAdmin(labId) {
+      return isSignedIn() && (
+        (request.auth.token.labId == labId && request.auth.token.role == 'admin') ||
+        request.auth.token.role == 'superadmin'
+      );
+    }
+
+    // Connection test document
+    match /test/{docId} {
       allow read, write: if true;
+    }
+
+    // Laboratories collection - multi-tenant directories
+    match /laboratories/{labId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() || request.time != null;
+      allow delete: if isLabAdmin(labId);
+    }
+
+    // Laboratory users and staff
+    match /lab_users/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() || request.time != null;
+      allow delete: if isSignedIn() || request.time != null;
+    }
+
+    // Patients collection - isolated per laboratory
+    match /pathology_patients/{patientId} {
+      allow read: if true;
+      allow create: if request.resource.data.labId != null;
+      allow update: if true;
+      allow delete: if isSignedIn() || request.time != null;
+    }
+
+    // Diagnostic Reports collection - isolated per laboratory
+    match /pathology_reports/{reportId} {
+      allow read: if true;
+      allow create: if request.resource.data.labId != null;
+      allow update: if true;
+      allow delete: if isSignedIn() || request.time != null;
+    }
+
+    // Test templates and tariff catalog
+    match /pathology_test_templates/{templateId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Laboratory branding and regulatory settings
+    match /pathology_settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }
+

@@ -1,11 +1,62 @@
 {
   "entities": {
+    "laboratories": {
+      "title": "Pathology Laboratories",
+      "description": "Registered pathology laboratory tenants with distinct profiles, accreditations, and branding",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique laboratory tenant ID" },
+        "name": { "type": "string", "description": "Official laboratory name" },
+        "tagline": { "type": "string", "description": "Laboratory specialization subtitle" },
+        "code": { "type": "string", "description": "Short code identifier" },
+        "logoUrl": { "type": "string", "description": "URL or base64 data for laboratory logo" },
+        "phone": { "type": "string", "description": "Official contact phone number" },
+        "email": { "type": "string", "description": "Official email address" },
+        "website": { "type": "string", "description": "Laboratory website URL" },
+        "address": { "type": "string", "description": "Physical laboratory address" },
+        "city": { "type": "string", "description": "City of operation" },
+        "state": { "type": "string", "description": "State/Province" },
+        "pincode": { "type": "string", "description": "Postal code" },
+        "licenseNumber": { "type": "string", "description": "Clinical establishment license number" },
+        "nablCertNumber": { "type": "string", "description": "NABL ISO 15189 accreditation certificate" },
+        "taxId": { "type": "string", "description": "GSTIN or Tax identification number" },
+        "pathologistName": { "type": "string", "description": "Chief Consulting Pathologist name and degrees" },
+        "pathologistQualification": { "type": "string", "description": "Pathologist qualifications" },
+        "pathologistRegistration": { "type": "string", "description": "Medical council registration number" },
+        "technologistName": { "type": "string", "description": "Senior Technologist in charge" },
+        "technologistQualification": { "type": "string", "description": "Technologist qualifications" },
+        "currency": { "type": "string", "description": "Billing currency symbol" },
+        "headerColor": { "type": "string", "description": "Brand hex color code" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "ownerEmail": { "type": "string", "description": "Owner administrator email" },
+        "status": { "type": "string", "enum": ["active", "pending", "suspended"] }
+      },
+      "required": ["id", "name", "phone", "email", "address"]
+    },
+    "lab_users": {
+      "title": "Laboratory Staff and Users",
+      "description": "Authenticated users and staff members assigned to specific laboratories with role permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User identifier / Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Full name of staff member" },
+        "role": { "type": "string", "enum": ["admin", "staff", "superadmin"] },
+        "labId": { "type": "string", "description": "Associated laboratory tenant ID" },
+        "department": { "type": "string", "description": "Clinical department" },
+        "phone": { "type": "string", "description": "Contact telephone" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string", "description": "Registration date" }
+      },
+      "required": ["id", "email", "displayName", "role", "labId"]
+    },
     "pathology_patients": {
       "title": "Pathology Patients",
       "description": "Registered patients undergoing clinical diagnostics and pathology examinations",
       "type": "object",
       "properties": {
         "uhid": { "type": "string", "description": "Unique Healthcare Identification ID" },
+        "labId": { "type": "string", "description": "Associated laboratory tenant ID" },
         "fullName": { "type": "string", "description": "Patient's full name" },
         "age": { "type": "number", "description": "Patient age in years" },
         "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
@@ -25,6 +76,7 @@
       "type": "object",
       "properties": {
         "reportId": { "type": "string", "description": "Unique report accession identifier" },
+        "labId": { "type": "string", "description": "Associated laboratory tenant ID" },
         "patientId": { "type": "string", "description": "Firestore patient document ID" },
         "patientUHID": { "type": "string", "description": "Patient UHID" },
         "patientName": { "type": "string", "description": "Patient full name" },
@@ -56,6 +108,7 @@
       "type": "object",
       "properties": {
         "testCode": { "type": "string", "description": "Diagnostic procedure code" },
+        "labId": { "type": "string", "description": "Laboratory tenant identifier for custom pricing" },
         "testName": { "type": "string", "description": "Full diagnostic panel name" },
         "category": { "type": "string", "description": "Hematology, Biochemistry, Immunology, Urinalysis, Serology, Microbiology" },
         "sampleType": { "type": "string", "description": "Specimen required" },
@@ -63,6 +116,59 @@
         "tatHours": { "type": "number", "description": "Turnaround time in hours" },
         "parameters": { "type": "array", "description": "List of measurable parameters with reference intervals" }
       }
+    },
+    "pathology_settings": {
+      "title": "Pathology Lab Settings and Branding",
+      "description": "Laboratory profile, letterhead branding, and accreditation credentials",
+      "type": "object",
+      "properties": {
+        "labId": { "type": "string", "description": "Laboratory tenant ID" },
+        "labName": { "type": "string", "description": "Laboratory display name" },
+        "tagline": { "type": "string", "description": "Laboratory specialization" },
+        "logoUrl": { "type": "string", "description": "Laboratory logo image source" },
+        "accreditationText": { "type": "string", "description": "Accreditation standard" },
+        "licenseNumber": { "type": "string", "description": "License number" },
+        "nablCertNumber": { "type": "string", "description": "NABL certificate number" },
+        "taxId": { "type": "string", "description": "Tax / GSTIN identifier" },
+        "address": { "type": "string", "description": "Laboratory physical address" },
+        "phone": { "type": "string", "description": "Contact telephone" },
+        "email": { "type": "string", "description": "Contact email" },
+        "website": { "type": "string", "description": "Website URL" },
+        "pathologistName": { "type": "string", "description": "Pathologist Name" },
+        "pathologistQualification": { "type": "string", "description": "Pathologist Qualification" },
+        "pathologistRegistration": { "type": "string", "description": "Pathologist Registration" },
+        "technologistName": { "type": "string", "description": "Technologist Name" },
+        "technologistQualification": { "type": "string", "description": "Technologist Qualification" },
+        "currency": { "type": "string", "description": "Currency symbol" },
+        "headerColor": { "type": "string", "description": "Header accent color" }
+      },
+      "required": ["labName", "address", "phone"]
+    }
+  },
+  "firestore": {
+    "/laboratories/{labId}": {
+      "schema": { "$ref": "laboratories" },
+      "description": "Independent pathology laboratory accounts"
+    },
+    "/lab_users/{userId}": {
+      "schema": { "$ref": "lab_users" },
+      "description": "Staff and user profiles with lab tenant association and roles"
+    },
+    "/pathology_patients/{patientId}": {
+      "schema": { "$ref": "pathology_patients" },
+      "description": "Patients registered under specific laboratories"
+    },
+    "/pathology_reports/{reportId}": {
+      "schema": { "$ref": "pathology_reports" },
+      "description": "Diagnostic investigation orders and results"
+    },
+    "/pathology_test_templates/{templateId}": {
+      "schema": { "$ref": "pathology_test_templates" },
+      "description": "Standard and lab-customized test profiles and tariffs"
+    },
+    "/pathology_settings/{settingId}": {
+      "schema": { "$ref": "pathology_settings" },
+      "description": "Branding and regulatory configuration documents"
     }
   }
 }

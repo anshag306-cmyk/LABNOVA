@@ -1,47 +1,32 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AiAssistantModal } from './components/AiAssistant/AiAssistantModal';
-import { ScientificAnalytics } from './components/Analytics/ScientificAnalytics';
 import { ComplianceAudit } from './components/Compliance/ComplianceAudit';
-import { EquipmentManager } from './components/Equipment/EquipmentManager';
-import { ChemicalInventory } from './components/Inventory/ChemicalInventory';
 import { Navbar } from './components/Navbar';
-import { ExperimentDetail } from './components/Notebook/ExperimentDetail';
-import { NewExperimentModal } from './components/Notebook/NewExperimentModal';
-import { NotebookList } from './components/Notebook/NotebookList';
-import { Overview } from './components/Overview';
 import { PathologyDashboard } from './components/Pathology/PathologyDashboard';
-import { ProtocolLibrary } from './components/Protocols/ProtocolLibrary';
-import { SampleRegistry } from './components/Samples/SampleRegistry';
 import { LabProvider, useLab } from './context/LabContext';
-import { Protocol } from './types';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LabNovaAuthView } from './components/Auth/LabNovaAuthView';
+import { LabSwitcherModal } from './components/Pathology/LabSwitcherModal';
+import { StaffManagementModal } from './components/Pathology/StaffManagementModal';
 
 const MainLabContent: React.FC = () => {
   const {
     activeTab,
-    setActiveTab,
-    selectedExperimentId,
-    setSelectedExperimentId,
     themeMode,
-    addExperiment,
   } = useLab();
 
-  const [isNewExpModalOpen, setIsNewExpModalOpen] = useState(false);
+  const {
+    isAuthenticated,
+    isLabSwitcherOpen,
+    closeLabSwitcher,
+    isStaffModalOpen,
+    closeStaffModal,
+  } = useAuth();
 
-  const handleStartExperimentWithProtocol = (protocol: Protocol) => {
-    const newExp = addExperiment({
-      title: `Run: ${protocol.title}`,
-      category: protocol.category.replace('_', ' ').toUpperCase(),
-      hypothesis: `Execute and validate standard operating procedure "${protocol.title}" under controlled GLP conditions.`,
-      tags: ['SOP_Execution', protocol.category || 'general'],
-      protocolId: protocol.id,
-      protocolSteps: (protocol.steps || []).map((s) => ({ ...s, completed: false })),
-      reagents: protocol.reagents || [],
-      status: 'in_progress',
-    });
-
-    setSelectedExperimentId(newExp.id);
-    setActiveTab('eln');
-  };
+  // If unauthenticated, gate access with the secure LabNova Auth portal
+  if (!isAuthenticated) {
+    return <LabNovaAuthView />;
+  }
 
   return (
     <div
@@ -51,46 +36,12 @@ const MainLabContent: React.FC = () => {
     >
       <Navbar />
 
-      {activeTab === 'pathology' ? (
+      {activeTab === 'pathology' || activeTab === 'overview' ? (
         <div className="flex-1">
-          <PathologyDashboard />
+          <PathologyDashboard initialTab="overview" />
         </div>
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {activeTab === 'overview' && (
-            <Overview onNewExperimentClick={() => setIsNewExpModalOpen(true)} />
-          )}
-
-          {activeTab === 'eln' && (
-            <>
-              {selectedExperimentId ? (
-                <ExperimentDetail
-                  experimentId={selectedExperimentId}
-                  onBack={() => setSelectedExperimentId(null)}
-                />
-              ) : (
-                <NotebookList
-                  onSelectExperiment={(id) => setSelectedExperimentId(id)}
-                  onNewExperiment={() => setIsNewExpModalOpen(true)}
-                />
-              )}
-            </>
-          )}
-
-          {activeTab === 'protocols' && (
-            <ProtocolLibrary
-              onStartExperimentWithProtocol={handleStartExperimentWithProtocol}
-            />
-          )}
-
-          {activeTab === 'samples' && <SampleRegistry />}
-
-          {activeTab === 'inventory' && <ChemicalInventory />}
-
-          {activeTab === 'equipment' && <EquipmentManager />}
-
-          {activeTab === 'analytics' && <ScientificAnalytics />}
-
           {activeTab === 'compliance' && <ComplianceAudit />}
         </main>
       )}
@@ -125,24 +76,21 @@ const MainLabContent: React.FC = () => {
       </footer>
 
       {/* Global Modals */}
-      <NewExperimentModal
-        isOpen={isNewExpModalOpen}
-        onClose={() => setIsNewExpModalOpen(false)}
-        onCreated={(newId) => {
-          setSelectedExperimentId(newId);
-          setActiveTab('eln');
-        }}
-      />
-
       <AiAssistantModal />
+
+      {/* Auth & Multi-Lab Modals */}
+      <LabSwitcherModal isOpen={isLabSwitcherOpen} onClose={closeLabSwitcher} />
+      <StaffManagementModal isOpen={isStaffModalOpen} onClose={closeStaffModal} />
     </div>
   );
 };
 
 export default function App() {
   return (
-    <LabProvider>
-      <MainLabContent />
-    </LabProvider>
+    <AuthProvider>
+      <LabProvider>
+        <MainLabContent />
+      </LabProvider>
+    </AuthProvider>
   );
 }

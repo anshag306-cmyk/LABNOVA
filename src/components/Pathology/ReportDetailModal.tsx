@@ -78,10 +78,10 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
   const hasAbnormal = (report.results || []).some((r) => r.status === 'high' || r.status === 'low');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/75 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[96vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/75 backdrop-blur-xs animate-in fade-in duration-150 print:fixed print:inset-0 print:p-0 print:bg-white print:z-[9999] print:block print:overflow-visible">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[96vh] print:max-h-none print:h-auto print:border-none print:shadow-none print:rounded-none">
         {/* Top Control Bar */}
-        <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 shrink-0">
+        <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 shrink-0 print:hidden">
           <div className="flex items-center space-x-3">
             <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 px-2.5 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-700/60">
               {report.reportId}
@@ -159,8 +159,8 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
         </div>
 
         {/* Printable Laboratory Sheet Preview */}
-        <div className="overflow-y-auto p-4 sm:p-8 space-y-6 flex-1 bg-slate-100/60 dark:bg-slate-950">
-          <div className="bg-white dark:bg-slate-900 max-w-3xl mx-auto rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-6">
+        <div className="overflow-y-auto p-4 sm:p-8 space-y-6 flex-1 bg-slate-100/60 dark:bg-slate-950 print:overflow-visible print:p-0 print:bg-white">
+          <div className="bg-white dark:bg-slate-900 max-w-3xl mx-auto rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-6 sm:p-8 space-y-6 print:max-w-none print:shadow-none print:border-none print:p-6 print:w-full">
             {/* Lab Letterhead */}
             <div className="border-b-2 border-slate-900 dark:border-slate-100 pb-5">
               <div className="flex justify-between items-start">
@@ -181,7 +181,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                   </p>
                 </div>
 
-                <div className="text-right hidden sm:block">
+                <div className="text-right hidden sm:block print:block">
                   <div className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300">
                     Cert No: {settings.nablCertNumber}
                   </div>
@@ -225,6 +225,13 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                 </div>
 
                 <div>
+                  <span className="text-slate-400 block text-[11px]">Mobile Number</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {report.patientPhone || 'N/A'}
+                  </span>
+                </div>
+
+                <div>
                   <span className="text-slate-400 block text-[11px]">Referred By</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {report.referredBy || 'Self / Walk-in'}
@@ -239,16 +246,18 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Sample Collected</span>
+                  <span className="text-slate-400 block text-[11px]">Sample Drawn / Coll.</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {report.sampleCollectedAt ? new Date(report.sampleCollectedAt).toLocaleString() : 'N/A'}
+                    {report.sampleCollectedAt ? new Date(report.sampleCollectedAt).toLocaleString() : 'Recent'}
                   </span>
                 </div>
 
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Report Released</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {report.reportDate ? new Date(report.reportDate).toLocaleDateString() : new Date().toLocaleDateString()}
+                <div className="col-span-2 sm:col-span-4 border-t border-slate-200 dark:border-slate-700/60 pt-2 flex justify-between items-center text-[11px]">
+                  <span className="text-slate-500">
+                    Report Released Date: <strong className="text-slate-700 dark:text-slate-300 font-mono">{report.reportDate ? new Date(report.reportDate).toLocaleString() : new Date().toLocaleString()}</strong>
+                  </span>
+                  <span className="text-slate-500">
+                    Barcode ID: <strong className="text-slate-700 dark:text-slate-300 font-mono">{report.sampleBarcode}</strong>
                   </span>
                 </div>
               </div>
@@ -387,7 +396,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
         </div>
 
         {/* Bottom Bar for Status Progression */}
-        <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Update Report Workflow Stage:

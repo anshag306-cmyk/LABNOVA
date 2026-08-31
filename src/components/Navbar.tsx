@@ -19,8 +19,12 @@ import {
   Sparkles,
   Sun,
   X,
+  Building2,
+  User,
+  LogOut,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
   const {
@@ -28,36 +32,20 @@ export const Navbar: React.FC = () => {
     setActiveTab,
     themeMode,
     toggleTheme,
-    activeTimer,
-    pauseTimer,
-    resumeTimer,
-    resetTimer,
-    stopTimer,
     openAiAssistant,
-    inventory,
-    sensors,
   } = useLab();
 
-  // Calculate alerts
-  const lowStockCount = inventory.filter((item) => item.quantity <= item.minThreshold).length;
-  const criticalSensors = sensors.filter((s) => s.status !== 'normal').length;
-
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
+  const {
+    user,
+    currentLab,
+    isAdmin,
+    openLabSwitcher,
+    logout,
+  } = useAuth();
 
   const navItems: Array<{ id: any; label: string; icon: any; badge?: number | string | undefined }> = [
-    { id: 'pathology', label: 'Pathology LIMS', icon: FlaskConical, badge: 'Firebase' },
-    { id: 'overview', label: 'Overview', icon: Activity },
-    { id: 'eln', label: 'Lab Notebook', icon: BookOpen },
-    { id: 'protocols', label: 'Protocols', icon: FlaskConical },
-    { id: 'samples', label: 'Sample Registry', icon: Database },
-    { id: 'inventory', label: 'Chemicals & SDS', icon: Beaker, badge: lowStockCount > 0 ? lowStockCount : undefined },
-    { id: 'equipment', label: 'Instruments', icon: Cpu },
-    { id: 'analytics', label: 'Analytics & Math', icon: LineChart },
-    { id: 'compliance', label: 'Audit Trail', icon: ShieldCheck },
+    { id: 'pathology', label: 'Pathology Lab Dashboard', icon: FlaskConical, badge: 'Live' },
+    { id: 'compliance', label: 'Audit Trail & Compliance', icon: ShieldCheck },
   ];
 
   return (
@@ -73,86 +61,47 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Identity */}
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('overview')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-sm text-white">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('pathology')}>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm text-white">
               <FlaskConical className="w-6 h-6 transform -rotate-6" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 bg-clip-text text-transparent">
                   LabNova
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
-                  LIMS & ELN
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300">
+                  Pathology LIMS
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Research Systems • GLP Standard
+                Clinical Pathology & Diagnostics • NABL ISO 15189
               </p>
             </div>
           </div>
 
-          {/* Center: Live Active Protocol Timer (if any active) */}
-          {activeTimer && (
-            <div
-              id="active-timer-banner"
-              className={`hidden md:flex items-center space-x-3 px-3.5 py-1.5 rounded-full border transition-all ${
-                activeTimer.secondsRemaining === 0
-                  ? 'bg-red-50 border-red-300 text-red-700 animate-pulse dark:bg-red-950/60 dark:border-red-800 dark:text-red-300'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-200'
-              }`}
+          {/* Right: Status, AI Copilot Trigger, Theme */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Lab Branch Quick Switcher */}
+            <button
+              id="btn-navbar-lab-switcher"
+              onClick={openLabSwitcher}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+              title="Switch Pathology Lab Branch"
             >
-              <Clock className="w-4 h-4" />
-              <div className="text-xs font-semibold max-w-xs truncate">
-                <span>Step {activeTimer.stepNumber}: {activeTimer.stepTitle}</span>
-              </div>
-              <span className="font-mono font-bold text-sm tracking-wider">
-                {formatTimer(activeTimer.secondsRemaining)}
+              <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span className="font-semibold hidden md:inline truncate max-w-[140px]">{currentLab.name}</span>
+              <span className="font-mono text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-bold">
+                {currentLab.code}
               </span>
-              <div className="flex items-center space-x-1 pl-1">
-                {activeTimer.isRunning ? (
-                  <button
-                    onClick={pauseTimer}
-                    title="Pause timer"
-                    className="p-1 hover:bg-emerald-200/50 rounded dark:hover:bg-emerald-800/50"
-                  >
-                    <Pause className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={resumeTimer}
-                    title="Resume timer"
-                    className="p-1 hover:bg-emerald-200/50 rounded dark:hover:bg-emerald-800/50"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <button
-                  onClick={resetTimer}
-                  title="Reset"
-                  className="p-1 hover:bg-emerald-200/50 rounded dark:hover:bg-emerald-800/50"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={stopTimer}
-                  title="Close timer"
-                  className="p-1 hover:bg-emerald-200/50 rounded dark:hover:bg-emerald-800/50"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
+            </button>
 
-          {/* Right: Quick Telemetry, AI Assistant Trigger, Theme */}
-          <div className="flex items-center space-x-3">
-            {/* Environmental telemetry pill */}
+            {/* Accreditation & Database Status */}
             <div className="hidden lg:flex items-center space-x-2 text-xs px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-mono">Vault: -80.4°C</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-200">NABL ISO 15189</span>
               <span className="text-slate-300 dark:text-slate-600">|</span>
-              <span className="font-mono">CO₂: 5.0%</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">Cloud Connected</span>
             </div>
 
             {/* AI Assistant Button */}
@@ -189,14 +138,14 @@ export const Navbar: React.FC = () => {
                 onClick={() => setActiveTab(item.id)}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 shadow-sm ring-1 ring-emerald-600/20'
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 shadow-sm ring-1 ring-blue-600/20'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : ''}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`} />
                 <span>{item.label}</span>
                 {item.badge !== undefined && (
-                  <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
                     {item.badge}
                   </span>
                 )}

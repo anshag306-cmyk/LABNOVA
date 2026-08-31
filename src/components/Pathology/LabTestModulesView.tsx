@@ -13,8 +13,14 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Info,
+  Edit3,
+  Lock,
+  Check,
+  X,
 } from 'lucide-react';
 import { TestTemplate, PathologyCategory } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { updateTestTemplatePriceInFirestore } from '../../services/pathologyFirebase';
 
 interface LabTestModulesViewProps {
   templates: TestTemplate[];
@@ -25,9 +31,37 @@ export const LabTestModulesView: React.FC<LabTestModulesViewProps> = ({
   templates,
   onOrderTest,
 }) => {
+  const { currentLab, isAdmin, isStaff } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedTestCode, setExpandedTestCode] = useState<string | null>(null);
+
+  // Price editing state
+  const [editingPriceCode, setEditingPriceCode] = useState<string | null>(null);
+  const [tempPrice, setTempPrice] = useState<number>(0);
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const [priceSuccessMsg, setPriceSuccessMsg] = useState<string | null>(null);
+
+  const handleStartEditPrice = (tmpl: TestTemplate) => {
+    if (!isAdmin) return;
+    setEditingPriceCode(tmpl.testCode);
+    setTempPrice(tmpl.price);
+  };
+
+  const handleSavePrice = async (testCode: string) => {
+    if (tempPrice < 0) return;
+    setIsSavingPrice(true);
+    try {
+      await updateTestTemplatePriceInFirestore(testCode, tempPrice, currentLab.id);
+      setPriceSuccessMsg(`Updated ${testCode} tariff to ${currentLab.currency || '₹'}${tempPrice}`);
+      setEditingPriceCode(null);
+      setTimeout(() => setPriceSuccessMsg(null), 3000);
+    } catch (e) {
+      console.error('Failed to update test price:', e);
+    } finally {
+      setIsSavingPrice(false);
+    }
+  };
 
   const categories: string[] = [
     'All',
@@ -114,6 +148,13 @@ export const LabTestModulesView: React.FC<LabTestModulesViewProps> = ({
         </div>
       </div>
 
+      {priceSuccessMsg && (
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-150">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{priceSuccessMsg}</span>
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Category Pills */}
@@ -173,9 +214,59 @@ export const LabTestModulesView: React.FC<LabTestModulesViewProps> = ({
                     </h3>
                   </div>
 
-                  <span className="text-sm font-black text-slate-900 dark:text-slate-100 font-mono shrink-0">
-                    ₹{template.price}
-                  </span>
+                  {/* Price Tag with Admin Editing */}
+                  <div className="shrink-0 text-right">
+                    {editingPriceCode === template.testCode ? (
+                      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-blue-400">
+                        <span className="text-xs font-bold text-slate-500">{currentLab.currency || '₹'}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          autoFocus
+                          value={tempPrice}
+                          onChange={(e) => setTempPrice(Number(e.target.value))}
+                          className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold bg-white dark:bg-slate-900 rounded border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSavingPrice}
+                          onClick={() => handleSavePrice(template.testCode)}
+                          className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white"
+                          title="Save Tariff"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingPriceCode(null)}
+                          className="p-1 rounded bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                          title="Cancel"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-black text-slate-900 dark:text-slate-100 font-mono">
+                          {currentLab.currency || '₹'}{template.price}
+                        </span>
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditPrice(template)}
+                            className="p-1 rounded-md text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title={`Edit ${template.testCode} tariff for ${currentLab.name}`}
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span title="Tariff set by Lab Administrator">
+                            <Lock className="w-3 h-3 text-slate-400" />
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Tube & Specimen Badges */}

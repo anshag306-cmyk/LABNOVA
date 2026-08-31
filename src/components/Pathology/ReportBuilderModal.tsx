@@ -24,6 +24,7 @@ import {
 } from '../../types';
 import { DEFAULT_TEST_TEMPLATES } from '../../data/pathologyTemplates';
 import { addReportToFirestore, updateReportInFirestore } from '../../services/pathologyFirebase';
+import { useAuth } from '../../context/AuthContext';
 
 interface ReportBuilderModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   onReportSaved,
   onOpenPatientRegistration,
 }) => {
+  const { currentLab, isAdmin, isStaff } = useAuth();
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedTestCodes, setSelectedTestCodes] = useState<string[]>([]);
   const [sampleType, setSampleType] = useState('EDTA Whole Blood & Serum');
@@ -320,6 +322,7 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
       });
 
       const reportData: Omit<PathologyReport, 'id'> = {
+        labId: reportToEdit?.labId || currentLab.id,
         reportId,
         patientId: patient.id,
         patientUHID: patient.uhid,
@@ -337,7 +340,7 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
         testNames: testNames.length > 0 ? testNames : ['Custom Diagnostic Examination'],
         results: cleanResults,
         status,
-        verifiedBy: verifiedBy || 'Dr. Manisha Kulkarni, MD (Pathology)',
+        verifiedBy: verifiedBy || settings?.pathologistName || currentLab.pathologistName,
         billing: {
           totalAmount,
           discount,
@@ -367,10 +370,10 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
 
       let savedReport: PathologyReport;
       if (reportToEdit) {
-        await updateReportInFirestore(reportToEdit.id, reportData);
+        await updateReportInFirestore(reportToEdit.id, reportData, currentLab.id);
         savedReport = { ...reportData, id: reportToEdit.id };
       } else {
-        savedReport = await addReportToFirestore(reportData);
+        savedReport = await addReportToFirestore(reportData, currentLab.id);
       }
 
       setIsSaving(false);

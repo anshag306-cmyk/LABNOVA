@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, UserPlus, Phone, Mail, MapPin, Stethoscope, AlertCircle, CheckCircle } from 'lucide-react';
 import { PathologyPatient, PatientGender } from '../../types';
 import { addPatientToFirestore } from '../../services/pathologyFirebase';
+import { useAuth } from '../../context/AuthContext';
 
 interface PatientRegistrationModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
   onClose,
   onPatientCreated,
 }) => {
+  const { currentLab } = useAuth();
   const [fullName, setFullName] = useState('');
   const [age, setAge] = useState<number | ''>('');
   const [gender, setGender] = useState<PatientGender>('Male');
@@ -53,6 +55,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
       const uhid = `UHID-${currentYear}-${randomSeq}`;
 
       const patientData: Omit<PathologyPatient, 'id'> = {
+        labId: currentLab.id,
         uhid,
         fullName: fullName.trim(),
         age: Number(age),
@@ -73,7 +76,7 @@ export const PatientRegistrationModal: React.FC<PatientRegistrationModalProps> =
         patientData.notes = notes.trim();
       }
 
-      const savedPatient = await addPatientToFirestore(patientData);
+      const savedPatient = await addPatientToFirestore(patientData, currentLab.id);
       setIsSubmitting(false);
       onPatientCreated(savedPatient, createReportNow);
       onClose();
