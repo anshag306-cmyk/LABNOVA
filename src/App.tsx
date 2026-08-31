@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AiAssistantModal } from './components/AiAssistant/AiAssistantModal';
 import { ComplianceAudit } from './components/Compliance/ComplianceAudit';
 import { Navbar } from './components/Navbar';
@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LabNovaAuthView } from './components/Auth/LabNovaAuthView';
 import { LabSwitcherModal } from './components/Pathology/LabSwitcherModal';
 import { StaffManagementModal } from './components/Pathology/StaffManagementModal';
+import { PublicHomePage } from './components/Public/PublicHomePage';
 
 const MainLabContent: React.FC = () => {
   const {
@@ -23,18 +24,42 @@ const MainLabContent: React.FC = () => {
     closeStaffModal,
   } = useAuth();
 
-  // If unauthenticated, gate access with the secure LabNova Auth portal
-  if (!isAuthenticated) {
-    return <LabNovaAuthView />;
+  // Navigation mode: 'public' (visitor website), 'auth' (staff login screen), 'dashboard' (authenticated LIMS)
+  const [viewMode, setViewMode] = useState<'public' | 'auth' | 'dashboard'>('public');
+
+  // When user successfully authenticates, automatically route to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      setViewMode('dashboard');
+    } else {
+      // When unauthenticated and currently on dashboard, return to public homepage
+      setViewMode((prev) => (prev === 'dashboard' ? 'public' : prev));
+    }
+  }, [isAuthenticated]);
+
+  // Case 1: Staff explicitly requests login view
+  if (!isAuthenticated && viewMode === 'auth') {
+    return <LabNovaAuthView onBackToHome={() => setViewMode('public')} />;
   }
 
+  // Case 2: User is unauthenticated OR authenticated staff chooses to view public site
+  if (!isAuthenticated || viewMode === 'public') {
+    return (
+      <PublicHomePage
+        onOpenStaffLogin={() => setViewMode('auth')}
+        onGoToDashboard={() => setViewMode('dashboard')}
+      />
+    );
+  }
+
+  // Case 3: Authenticated user accessing secure laboratory dashboard
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
         themeMode === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
       }`}
     >
-      <Navbar />
+      <Navbar onViewPublicWebsite={() => setViewMode('public')} />
 
       {activeTab === 'pathology' || activeTab === 'overview' ? (
         <div className="flex-1">

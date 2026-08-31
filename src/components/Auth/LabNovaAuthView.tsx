@@ -19,7 +19,11 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { Laboratory, UserRole } from '../../types';
 
-export const LabNovaAuthView: React.FC = () => {
+interface LabNovaAuthViewProps {
+  onBackToHome?: () => void;
+}
+
+export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }) => {
   const {
     loginWithGoogle,
     loginWithEmail,
@@ -88,6 +92,23 @@ export const LabNovaAuthView: React.FC = () => {
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 -right-40 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl" />
+      </div>
+
+      {/* Top Bar with Back to Public Site */}
+      <div className="relative max-w-5xl w-full mx-auto mb-6 flex items-center justify-between">
+        {onBackToHome && (
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition shadow-sm"
+          >
+            <span>← Back to Public Website</span>
+          </button>
+        )}
+        <span className="text-xs font-mono text-cyan-400/80 flex items-center gap-1.5 ml-auto">
+          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <span>Restricted Clinical Staff Portal</span>
+        </span>
       </div>
 
       <div className="relative max-w-5xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">

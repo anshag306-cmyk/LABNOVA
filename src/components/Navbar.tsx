@@ -22,11 +22,16 @@ import {
   Building2,
   User,
   LogOut,
+  Globe,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { useAuth } from '../context/AuthContext';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onViewPublicWebsite?: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onViewPublicWebsite }) => {
   const {
     activeTab,
     setActiveTab,
@@ -114,6 +119,19 @@ export const Navbar: React.FC = () => {
               <span>Lab AI Copilot</span>
             </button>
 
+            {/* Public Website Switch Button */}
+            {onViewPublicWebsite && (
+              <button
+                id="btn-navbar-public-website"
+                onClick={onViewPublicWebsite}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/60 font-semibold transition"
+                title="View Public Lab Website"
+              >
+                <Globe className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span className="hidden sm:inline">Public Website</span>
+              </button>
+            )}
+
             {/* Theme Toggle Button */}
             <button
               id="btn-theme-toggle"
@@ -122,6 +140,16 @@ export const Navbar: React.FC = () => {
               title={themeMode === 'dark' ? 'Switch to Cleanroom Light' : 'Switch to Darkroom Mode'}
             >
               {themeMode === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* Logout Button */}
+            <button
+              id="btn-navbar-logout"
+              onClick={logout}
+              className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 transition-colors"
+              title="Sign Out to Public Homepage"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
