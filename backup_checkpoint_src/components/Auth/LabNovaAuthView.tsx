@@ -317,7 +317,7 @@ export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Lab A Admin */}
+                {/* Lab Nova Admin */}
                 <button
                   id="btn-demo-nova-admin"
                   type="button"
@@ -326,16 +326,16 @@ export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white group-hover:text-blue-300">
-                      🩺 Lab A: Dr. Manisha
+                      🩺 Dr. Manisha Kulkarni
                     </span>
                     <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                      Lab A Admin
+                      Admin
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">LabNova Central (Isolated Lab A Data)</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Lab Nova (Full Control & Pricing)</p>
                 </button>
 
-                {/* Lab A Staff */}
+                {/* Lab Nova Staff */}
                 <button
                   id="btn-demo-nova-staff"
                   type="button"
@@ -344,16 +344,16 @@ export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white group-hover:text-emerald-300">
-                      🔬 Lab A: Sunil Verma
+                      🔬 Sunil K. Verma
                     </span>
                     <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                      Lab A Staff
+                      Staff
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">LabNova Central (Lab A Tech Access)</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Lab Nova (Operational Access)</p>
                 </button>
 
-                {/* Lab B Admin (Independent 2nd Lab) */}
+                {/* Apex PathLabs Admin (Independent 2nd Lab) */}
                 <button
                   id="btn-demo-apex-admin"
                   type="button"
@@ -362,13 +362,13 @@ export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white group-hover:text-teal-300">
-                      🏥 Lab B: Dr. Rajesh Sharma
+                      🏥 Dr. Rajesh Sharma
                     </span>
                     <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-400/30">
-                      Lab B Admin
+                      Admin
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Apex PathLabs (Isolated Lab B Data)</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Apex PathLabs (Separate Data & Tariffs)</p>
                 </button>
 
                 {/* Super Admin */}
@@ -383,10 +383,10 @@ export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }
                       🌐 Multi-Lab Super Admin
                     </span>
                     <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30">
-                      Super Admin
+                      Super
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Switch between Lab A, Lab B & Lab C</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Global Multi-Lab Oversight</p>
                 </button>
               </div>
             </div>
