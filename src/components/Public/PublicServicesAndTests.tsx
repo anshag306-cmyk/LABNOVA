@@ -71,14 +71,14 @@ export const PublicServicesAndTests: React.FC<PublicServicesAndTestsProps> = ({
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-xs font-semibold">
             <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>Standardized Diagnostic Tariffs & Profiles</span>
+            <span>Standardized Diagnostic Profiles & Catalog</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             Pathology Services & Investigation Directory
           </h2>
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-            Transparent diagnostic panel pricing, biological specimen protocols, and comprehensive
-            parameter reference ranges. Completely free of private patient information.
+            Comprehensive diagnostic investigation profiles, biological specimen protocols, and
+            standard biological reference intervals verified by Consultant Pathologists.
           </p>
         </div>
 
@@ -182,21 +182,18 @@ export const PublicServicesAndTests: React.FC<PublicServicesAndTestsProps> = ({
                 </div>
               </div>
 
-              {/* Price & Action Buttons */}
-              <div className="pt-5 border-t border-slate-100 dark:border-slate-800/80 mt-5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Tariff</div>
-                  <div className="text-xl font-black text-slate-900 dark:text-white">
-                    {currency}
-                    {test.price.toLocaleString()}
-                  </div>
-                </div>
+              {/* Action Buttons & Quality Badge */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 mt-5 flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50/80 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-900/60 text-teal-700 dark:text-teal-300 text-[11px] font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span>NABL Quality Standard</span>
+                </span>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onViewTestDetails(test)}
                     className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition"
-                    title="View Parameters & Prep Guide"
+                    title="View Parameters & Reference Ranges"
                   >
                     <Eye className="w-4 h-4" />
                   </button>

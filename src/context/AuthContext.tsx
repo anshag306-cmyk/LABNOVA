@@ -125,24 +125,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentLabId]);
 
-  // Derived current active lab
+  // Derived current active lab (non-superadmins are strictly locked to their assigned lab)
+  const effectiveLabId = user && user.role !== 'superadmin' ? user.labId : currentLabId;
   const currentLab: Laboratory =
-    availableLabs.find((l) => l.id === currentLabId) ||
+    availableLabs.find((l) => l.id === effectiveLabId) ||
     availableLabs[0] ||
     INITIAL_LABORATORIES[0];
 
   const switchLab = (labId: string) => {
+    // Strict RBAC: Only superadmin can switch active laboratory tenants
+    if (user && user.role !== 'superadmin') {
+      console.warn('Unauthorized: Regular lab staff cannot switch laboratories.');
+      return;
+    }
+
     const found = availableLabs.find((l) => l.id === labId);
     if (found) {
       setCurrentLabId(labId);
       localStorage.setItem(LOCAL_STORAGE_LAB_KEY, labId);
-
-      // If user is not superadmin and was assigned to another lab, adapt user's labId for session
-      if (user) {
-        const updatedUser = { ...user, labId };
-        setUser(updatedUser);
-        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(updatedUser));
-      }
     }
   };
 
@@ -191,17 +191,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (u) => u.email.toLowerCase() === email.trim().toLowerCase()
       );
 
-      const isOwner = email.toLowerCase().includes('anshag306') || email.toLowerCase().includes('admin');
-      const assignedRole: UserRole = matched?.role || (isOwner ? 'admin' : 'staff');
+      const isSuperAdminEmail = email.toLowerCase().trim() === 'anshag306@gmail.com';
+      const assignedRole: UserRole = isSuperAdminEmail
+        ? 'superadmin'
+        : matched?.role || (email.toLowerCase().includes('admin') ? 'admin' : 'staff');
       const assignedLabId = matched?.labId || currentLabId || DEFAULT_LAB_ID;
 
       const newUser: LabUser = {
         id: matched?.id || `usr-${Date.now()}`,
         email: email.trim(),
-        displayName: matched?.displayName || email.split('@')[0],
+        displayName: isSuperAdminEmail
+          ? 'Ansh Agrawal'
+          : matched?.displayName || email.split('@')[0],
         role: assignedRole,
         labId: assignedLabId,
-        department: matched?.department || (assignedRole === 'admin' ? 'Laboratory Administration' : 'Technical Staff'),
+        department: isSuperAdminEmail
+          ? 'Executive Administration & Multi-Lab Oversight'
+          : matched?.department || (assignedRole === 'admin' ? 'Laboratory Administration' : 'Technical Staff'),
         status: 'active',
         createdAt: new Date().toISOString(),
       };
@@ -225,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       demoUser = {
         id: 'usr-superadmin',
         email: 'anshag306@gmail.com',
-        displayName: name || 'Dr. Vikram Seth (Super Admin)',
+        displayName: 'Ansh Agrawal',
         role: 'superadmin',
         labId: targetLab,
         department: 'Multi-Lab Clinical Oversight',

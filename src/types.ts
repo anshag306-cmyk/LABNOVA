@@ -311,6 +311,37 @@ export interface LabSettings {
   headerColor: string;
 }
 
+export interface ReportLayoutVisibilityConfig {
+  showDailySign?: boolean; // Daily Sign / Lab Technologist signature section (default: true)
+  showVerified?: boolean; // Verified / Consultant Pathologist signature & stamp (default: true)
+  showDigitalSignatureQr?: boolean; // QR Matrix & digital verification hash badge (default: true)
+  showClinicalImpression?: boolean; // Clinical Impression & Pathologist Advice box (default: true)
+  showDepartmentMethod?: boolean; // Department & Analyzer Method info on test banner (default: true)
+  showPatientDemographicsBox?: boolean; // Bordered Patient Demographics / UHID card (default: true)
+  showCategoryHeaders?: boolean; // Category grouping sub-headers (default: true)
+  showEndDisclaimer?: boolean; // "** End of Diagnostic Examination Report **" disclaimer (default: true)
+}
+
+export interface DigitalLetterheadConfig extends ReportLayoutVisibilityConfig {
+  topOffsetMm: number; // Vertical position offset in mm: UP (negative) or DOWN (positive), default 0mm
+  horizontalOffsetMm: number; // Horizontal position offset in mm: LEFT (negative) or RIGHT (positive), default 0mm
+  tableFontSizePt: number; // Font size in points for test investigations table (default 9.5pt, range 7.5 - 13.0pt)
+}
+
+export interface PrePrintedLetterheadConfig extends ReportLayoutVisibilityConfig {
+  topMarginMm: number; // Space left for physical pre-printed header on page 1 (default ~48mm)
+  bottomMarginMm: number; // Space left for physical footer/signatures on last page (default ~28mm)
+  leftMarginMm: number; // Left margin in mm (default ~12mm)
+  rightMarginMm: number; // Right margin in mm (default ~12mm)
+  continuationTopMarginMm: number; // Top margin for continuation pages (page 2+, default ~22mm)
+  headerSpaceOffsetMm: number; // UP/DOWN offset adjustment in mm
+  horizontalOffsetMm: number; // LEFT/RIGHT offset adjustment in mm
+  includeSignatures: boolean; // Whether to print digital signatures or leave blank for physical stamp
+  includePatientBox: boolean; // Whether to draw patient box with background or minimal clean lines
+  showCategoryHeaders: boolean; // Whether to group parameters by category
+  tableFontSizePt?: number; // Font size in points for test investigations table (default 9.5pt, range 7.5 - 13.0pt)
+}
+
 export interface TestTemplate {
   id: string;
   labId?: string; // Tenant identifier for customized tariffs

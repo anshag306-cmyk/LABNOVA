@@ -80,15 +80,15 @@ export const PublicTestDetailModal: React.FC<PublicTestDetailModalProps> = ({
 
             <div className="p-4 rounded-2xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/50 space-y-1.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                Standard Tariff & Billing
+                Reporting & Turnaround Time
               </span>
-              <div className="text-2xl font-black text-slate-900 dark:text-white">
-                {currency}
-                {test.price.toLocaleString()}
+              <div className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                <span>{test.tatHours ? `${test.tatHours} Hours` : 'Same Day Reporting'}</span>
               </div>
               <div className="text-[11px] text-teal-700 dark:text-teal-300 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>NABL Quality Standard Testing</span>
+                <span>NABL ISO 15189 Quality Standard</span>
               </div>
             </div>
           </div>

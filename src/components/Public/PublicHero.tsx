@@ -94,7 +94,7 @@ export const PublicHero: React.FC<PublicHeroProps> = ({
                 onClick={onExploreTests}
                 className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-md shadow-blue-600/25 transition-all transform active:scale-95"
               >
-                <span>Browse Test Catalog & Prices</span>
+                <span>Browse Diagnostic Test Catalog</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 

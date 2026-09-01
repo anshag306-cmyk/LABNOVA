@@ -304,9 +304,8 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
                           />
                           <span className="truncate">{test.testName}</span>
                         </div>
-                        <span className="font-mono text-[11px] ml-2 shrink-0">
-                          {currency}
-                          {test.price}
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono ml-2 shrink-0">
+                          {test.category}
                         </span>
                       </div>
                     );
@@ -328,17 +327,16 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
                 />
               </div>
 
-              {/* Estimated Total & Security Note */}
+              {/* NABL Phlebotomist Dispatch & Logistics Note */}
               <div className="p-3.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/60 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-teal-900 dark:text-teal-200">
                   <ShieldCheck className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-                  <span>Free home collection on test orders above {currency}500.</span>
+                  <span>Certified Phlebotomist with temperature-controlled vacutainer kit dispatch.</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Total</div>
-                  <div className="text-base font-black text-slate-900 dark:text-white">
-                    {currency}
-                    {estimatedTotal.toLocaleString()}
+                  <div className="text-[10px] uppercase font-bold text-teal-600 dark:text-teal-400">Accredited</div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    ISO 15189 Standard
                   </div>
                 </div>
               </div>

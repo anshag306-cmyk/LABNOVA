@@ -14,11 +14,21 @@ import {
   Edit,
   Share2,
   Receipt,
+  Sliders,
+  FileSpreadsheet,
+  ChevronDown,
+  FileText,
 } from 'lucide-react';
 import { PathologyReport, ReportStatus, LabSettings } from '../../types';
-import { generatePathologyPdf, generateInvoicePdf } from '../../services/pdfReportGenerator';
+import {
+  generatePathologyPdf,
+  generateInvoicePdf,
+  generatePrePrintedPathologyPdf,
+} from '../../services/pdfReportGenerator';
+import { getPrePrintedConfig, getDigitalConfig } from '../../services/prePrintedConfig';
 import { updateReportStatusInFirestore } from '../../services/pathologyFirebase';
 import { DEFAULT_LAB_SETTINGS } from '../../data/pathologyTemplates';
+import { PrePrintedCalibrationModal } from './PrePrintedCalibrationModal';
 
 interface ReportDetailModalProps {
   report: PathologyReport | null;
@@ -36,15 +46,23 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
   onEditReport,
 }) => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isCalibrationModalOpen, setIsCalibrationModalOpen] = useState(false);
+  const [calibrationMode, setCalibrationMode] = useState<'digital' | 'preprinted'>('digital');
 
   if (!isOpen || !report) return null;
 
   const handleDownloadPdf = () => {
-    generatePathologyPdf(report, settings);
+    const config = getDigitalConfig();
+    generatePathologyPdf(report, settings, config);
   };
 
   const handleDownloadInvoice = () => {
     generateInvoicePdf(report, settings);
+  };
+
+  const handleDownloadPrePrinted = () => {
+    const config = getPrePrintedConfig();
+    generatePrePrintedPathologyPdf(report, settings, config);
   };
 
   const handlePrint = () => {
@@ -110,7 +128,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             {onEditReport && (
               <button
                 onClick={() => {
@@ -133,6 +151,41 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
               Tax Invoice
             </button>
 
+            {/* Print Adjustments / Calibration Shortcut Button */}
+            <button
+              onClick={() => {
+                setCalibrationMode('digital');
+                setIsCalibrationModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1.5 shadow-xs"
+              title="Open Full Page Position (UP/DOWN/LEFT/RIGHT) and Font Size Adjustment Controls"
+            >
+              <Sliders className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Print Adjustments</span>
+            </button>
+
+            {/* Pre-Printed Letterhead Option */}
+            <div className="flex items-center rounded-xl bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 p-0.5">
+              <button
+                onClick={handleDownloadPrePrinted}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1.5"
+                title="Download A4 PDF formatted specifically for physical Pre-Printed Letterhead paper"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Pre-Printed PDF</span>
+              </button>
+              <button
+                onClick={() => {
+                  setCalibrationMode('preprinted');
+                  setIsCalibrationModalOpen(true);
+                }}
+                className="p-1.5 rounded-lg text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 transition border-l border-amber-500/30"
+                title="Open Pre-Printed Letterhead Position & Margin Calibration Pad"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             <button
               onClick={handlePrint}
               className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5"
@@ -141,13 +194,27 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
               Print
             </button>
 
-            <button
-              onClick={handleDownloadPdf}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Official Report PDF
-            </button>
+            {/* Official Digital Letterhead PDF Option with Calibration Nudge Button */}
+            <div className="flex items-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs p-0.5 transition">
+              <button
+                onClick={handleDownloadPdf}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                title="Download standard PDF with digital LabNova letterhead banner and configured font size/offsets"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Digital Letterhead PDF</span>
+              </button>
+              <button
+                onClick={() => {
+                  setCalibrationMode('digital');
+                  setIsCalibrationModalOpen(true);
+                }}
+                className="p-1.5 rounded-lg text-blue-200 hover:text-white hover:bg-blue-800/60 transition border-l border-blue-400/30"
+                title="Open Digital Letterhead Position (UP/DOWN/LEFT/RIGHT) and Font Size Controls"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
             <button
               onClick={onClose}
@@ -426,6 +493,15 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Calibration & Print Adjustments Modal (Supports Digital and Pre-Printed) */}
+      <PrePrintedCalibrationModal
+        report={report}
+        settings={settings}
+        isOpen={isCalibrationModalOpen}
+        onClose={() => setIsCalibrationModalOpen(false)}
+        defaultMode={calibrationMode}
+      />
     </div>
   );
 };

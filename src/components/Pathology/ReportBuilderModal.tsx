@@ -596,9 +596,20 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
                       </td>
                       <td className="py-2 px-3">
                         <input
+                          id={`param-result-input-${idx}`}
                           type="text"
                           value={r.value}
                           onChange={(e) => handleParameterValueChange(idx, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const nextInput = document.getElementById(`param-result-input-${idx + 1}`);
+                              if (nextInput) {
+                                (nextInput as HTMLInputElement).focus();
+                                (nextInput as HTMLInputElement).select?.();
+                              }
+                            }
+                          }}
                           className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono font-semibold text-slate-900 dark:text-slate-100 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                         />
                       </td>
