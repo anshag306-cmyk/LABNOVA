@@ -155,15 +155,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onViewPublicWebsite, onGoToSuper
               <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">Cloud Connected</span>
             </div>
 
-            {/* AI Assistant Button */}
-            <button
-              id="btn-ai-assistant"
-              onClick={() => openAiAssistant('general')}
-              className="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-sm transition-transform active:scale-95"
-            >
-              <Sparkles className="w-4 h-4 text-emerald-200" />
-              <span>Lab AI Copilot</span>
-            </button>
+            {/* AI Assistant Button - Accessible only to Super Admin */}
+            {isSuperAdmin && (
+              <button
+                id="btn-ai-assistant"
+                onClick={() => openAiAssistant('general')}
+                className="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-sm transition-transform active:scale-95"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-200" />
+                <span>Lab AI Copilot</span>
+              </button>
+            )}
 
             {/* Public Website Switch Button */}
             {onViewPublicWebsite && (
