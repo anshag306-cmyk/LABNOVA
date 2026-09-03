@@ -18,6 +18,7 @@ export const DEFAULT_LAB_SETTINGS: LabSettings = {
   technologistQualification: 'Senior Biomedical Analyst & QC In-Charge',
   currency: '₹',
   headerColor: '#0f172a',
+  letterheadTemplateId: 'classic_medical',
 };
 
 export const DEFAULT_TEST_TEMPLATES: TestTemplate[] = [

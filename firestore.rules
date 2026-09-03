@@ -12,17 +12,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'anshag306@gmail.com') ||
+        request.auth.token.role == 'superadmin' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     function isLabMember(labId) {
       return isSignedIn() && (
         request.auth.token.labId == labId ||
-        request.auth.token.role == 'superadmin'
+        isSuperAdmin()
       );
     }
 
     function isLabAdmin(labId) {
       return isSignedIn() && (
         (request.auth.token.labId == labId && request.auth.token.role == 'admin') ||
-        request.auth.token.role == 'superadmin'
+        isSuperAdmin()
       );
     }
 
@@ -32,45 +40,51 @@ service cloud.firestore {
     }
 
     // Laboratories collection - multi-tenant directories
+    // ONLY Super Admin can create, delete, activate/deactivate, or manage any laboratory.
+    // Normal Laboratory Admins and Staff must NOT have permission to delete, deactivate, edit, or manage other laboratories.
     match /laboratories/{labId} {
       allow read: if true;
-      allow create, update: if isSignedIn() || request.time != null;
-      allow delete: if isLabAdmin(labId);
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin() || (
+        isLabAdmin(labId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'id', 'ownerEmail'])
+      );
+      allow delete: if isSuperAdmin();
     }
 
     // Laboratory users and staff
     match /lab_users/{userId} {
       allow read: if true;
-      allow create, update: if isSignedIn() || request.time != null;
-      allow delete: if isSignedIn() || request.time != null;
+      allow create, update: if isSuperAdmin() || isLabAdmin(request.resource.data.labId);
+      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(resource.data.labId));
     }
 
     // Patients collection - strictly protected; requires authentication
     match /pathology_patients/{patientId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.labId != null;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow read: if isSuperAdmin() || (isSignedIn() && (resource == null || isLabMember(resource.data.labId)));
+      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.labId != null && isLabMember(request.resource.data.labId));
+      allow update: if isSuperAdmin() || (isSignedIn() && isLabMember(resource.data.labId));
+      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(resource.data.labId));
     }
 
     // Diagnostic Reports collection - strictly protected; requires authentication
     match /pathology_reports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.labId != null;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow read: if isSuperAdmin() || (isSignedIn() && (resource == null || isLabMember(resource.data.labId)));
+      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.labId != null && isLabMember(request.resource.data.labId));
+      allow update: if isSuperAdmin() || (isSignedIn() && isLabMember(resource.data.labId));
+      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(resource.data.labId));
     }
 
     // Test templates and tariff catalog
     match /pathology_test_templates/{templateId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSuperAdmin() || (isSignedIn() && (resource == null || isLabAdmin(resource.data.labId) || isLabAdmin(request.resource.data.labId)));
     }
 
     // Laboratory branding and regulatory settings
     match /pathology_settings/{settingId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSuperAdmin() || isLabAdmin(settingId);
     }
   }
 }

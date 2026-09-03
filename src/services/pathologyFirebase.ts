@@ -25,6 +25,7 @@ import {
   LabSettings,
   Laboratory,
   LabUser,
+  HomeSampleBooking,
 } from '../types';
 import {
   DEFAULT_TEST_TEMPLATES,
@@ -36,6 +37,7 @@ import {
   INITIAL_APEX_PATIENTS,
   INITIAL_APEX_REPORTS,
 } from '../data/pathologyTemplates';
+import { optimizeBase64DataUrl } from '../utils/imageCompressor';
 
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -55,6 +57,7 @@ export const TEMPLATES_COLLECTION = 'pathology_test_templates';
 export const SETTINGS_COLLECTION = 'pathology_settings';
 export const LABS_COLLECTION = 'laboratories';
 export const LAB_USERS_COLLECTION = 'lab_users';
+export const HOME_BOOKINGS_COLLECTION = 'home_sample_bookings';
 
 // In-memory fallback / cache in case of initial hydration or offline preview
 let cachedPatientsMap: Record<string, PathologyPatient[]> = {
@@ -65,6 +68,11 @@ let cachedPatientsMap: Record<string, PathologyPatient[]> = {
 let cachedReportsMap: Record<string, PathologyReport[]> = {
   [DEFAULT_LAB_ID]: [...INITIAL_PATHOLOGY_REPORTS],
   'lab-apex-diag': [...INITIAL_APEX_REPORTS],
+};
+
+let cachedHomeBookingsMap: Record<string, HomeSampleBooking[]> = {
+  [DEFAULT_LAB_ID]: [],
+  'lab-apex-diag': [],
 };
 
 let cachedTemplates: TestTemplate[] = [...DEFAULT_TEST_TEMPLATES];
@@ -798,6 +806,7 @@ export function subscribeToLabSettings(
               technologistQualification: targetLab.technologistQualification,
               currency: targetLab.currency,
               headerColor: targetLab.headerColor,
+              letterheadTemplateId: targetLab.letterheadTemplateId || 'classic_medical',
             };
             setDoc(docRef, sanitizeForFirestore(labSettings)).catch(() => {});
             cachedSettings = labSettings;
@@ -826,8 +835,20 @@ export async function saveLabSettingsToFirestore(
   labId?: string
 ): Promise<void> {
   const targetLabId = labId || settings.labId || DEFAULT_LAB_ID;
+
+  // Optimize logoUrl if present and large (> 80KB)
+  let optimizedLogo = settings.logoUrl || '';
+  if (optimizedLogo && optimizedLogo.startsWith('data:image/') && optimizedLogo.length > 80 * 1024) {
+    try {
+      optimizedLogo = await optimizeBase64DataUrl(optimizedLogo, 70 * 1024);
+    } catch {
+      // Fallback
+    }
+  }
+
   const cleanSettings = sanitizeForFirestore({
     ...settings,
+    logoUrl: optimizedLogo,
     labId: targetLabId,
   });
 
@@ -848,7 +869,7 @@ export async function saveLabSettingsToFirestore(
       sanitizeForFirestore({
         name: settings.labName,
         tagline: settings.tagline,
-        logoUrl: settings.logoUrl || '',
+        logoUrl: optimizedLogo,
         address: settings.address,
         phone: settings.phone,
         email: settings.email,
@@ -863,6 +884,7 @@ export async function saveLabSettingsToFirestore(
         technologistQualification: settings.technologistQualification,
         currency: settings.currency,
         headerColor: settings.headerColor,
+        letterheadTemplateId: settings.letterheadTemplateId || 'classic_medical',
       }),
       { merge: true }
     ).catch(() => {});
@@ -921,8 +943,18 @@ export async function createNewLaboratoryInFirestore(
   labData: Laboratory,
   adminUser?: Partial<LabUser>
 ): Promise<Laboratory> {
+  let optimizedLogo = labData.logoUrl || '';
+  if (optimizedLogo && optimizedLogo.startsWith('data:image/') && optimizedLogo.length > 80 * 1024) {
+    try {
+      optimizedLogo = await optimizeBase64DataUrl(optimizedLogo, 70 * 1024);
+    } catch {
+      // Fallback
+    }
+  }
+
   const cleanLab = sanitizeForFirestore({
     ...labData,
+    logoUrl: optimizedLogo,
     createdAt: new Date().toISOString(),
     status: labData.status || 'active',
   });
@@ -937,7 +969,7 @@ export async function createNewLaboratoryInFirestore(
       labId: labData.id,
       labName: labData.name,
       tagline: labData.tagline,
-      logoUrl: labData.logoUrl || '',
+      logoUrl: optimizedLogo,
       accreditationText: labData.nablCertNumber
         ? `NABL Accredited ISO 15189:2022 | Cert #${labData.nablCertNumber}`
         : 'ISO 15189 Accredited Clinical Pathology Laboratory',
@@ -988,7 +1020,20 @@ export async function updateLaboratoryInFirestore(
   labId: string,
   updates: Partial<Laboratory>
 ): Promise<void> {
-  const cleanUpdates = sanitizeForFirestore(updates);
+  let optimizedUpdates = { ...updates };
+  if (
+    optimizedUpdates.logoUrl &&
+    optimizedUpdates.logoUrl.startsWith('data:image/') &&
+    optimizedUpdates.logoUrl.length > 80 * 1024
+  ) {
+    try {
+      optimizedUpdates.logoUrl = await optimizeBase64DataUrl(optimizedUpdates.logoUrl, 70 * 1024);
+    } catch {
+      // Fallback
+    }
+  }
+
+  const cleanUpdates = sanitizeForFirestore(optimizedUpdates);
   try {
     const docRef = doc(firestoreDb, LABS_COLLECTION, labId);
     await updateDoc(docRef, cleanUpdates);
@@ -1161,6 +1206,177 @@ export async function deleteStaffMemberFromFirestore(id: string): Promise<void> 
 }
 
 // -------------------------------------------------------------
+// HOME SAMPLE COLLECTION OPERATIONS
+// -------------------------------------------------------------
+
+export function subscribeToHomeBookings(
+  labIdOrCallback: string | ((bookings: HomeSampleBooking[]) => void),
+  maybeCallback?: (bookings: HomeSampleBooking[]) => void,
+  onError?: (err: Error) => void
+) {
+  const targetLabId =
+    typeof labIdOrCallback === 'string' ? labIdOrCallback : DEFAULT_LAB_ID;
+  const callback =
+    typeof labIdOrCallback === 'function' ? labIdOrCallback : maybeCallback || (() => {});
+
+  try {
+    const q = query(
+      collection(firestoreDb, HOME_BOOKINGS_COLLECTION),
+      orderBy('bookingTimestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        isFirebaseConnected = true;
+        const allBookings: HomeSampleBooking[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as HomeSampleBooking;
+          return {
+            ...data,
+            id: docSnap.id,
+            labId: data.labId || DEFAULT_LAB_ID,
+          };
+        });
+
+        // Strict multi-tenant filtering: Only returns bookings assigned to this lab (or all if superadmin)
+        const scopedBookings = allBookings.filter((b) => {
+          if (targetLabId === 'all') return true;
+          if (targetLabId === DEFAULT_LAB_ID) {
+            return b.labId === DEFAULT_LAB_ID || !b.labId;
+          }
+          return b.labId === targetLabId;
+        });
+
+        cachedHomeBookingsMap[targetLabId] = scopedBookings;
+        callback(scopedBookings);
+      },
+      (error) => {
+        console.warn('Home bookings subscription fallback:', error);
+        isFirebaseConnected = false;
+        if (onError) onError(error);
+        const fallback = cachedHomeBookingsMap[targetLabId] || cachedHomeBookingsMap[DEFAULT_LAB_ID] || [];
+        callback(fallback);
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('Failed to subscribe to home bookings:', error);
+    const fallback = cachedHomeBookingsMap[targetLabId] || cachedHomeBookingsMap[DEFAULT_LAB_ID] || [];
+    callback(fallback);
+    return () => {};
+  }
+}
+
+export async function addHomeBookingToFirestore(
+  bookingData: Omit<HomeSampleBooking, 'id'>
+): Promise<HomeSampleBooking> {
+  const targetLabId = bookingData.labId || DEFAULT_LAB_ID;
+  const cleanData = sanitizeForFirestore({
+    ...bookingData,
+    labId: targetLabId,
+    status: bookingData.status || 'pending',
+    createdAt: new Date().toISOString(),
+    bookingTimestamp: bookingData.bookingTimestamp || new Date().toISOString(),
+  });
+
+  try {
+    const docRef = await addDoc(
+      collection(firestoreDb, HOME_BOOKINGS_COLLECTION),
+      cleanData
+    );
+    const newBooking: HomeSampleBooking = {
+      ...cleanData,
+      id: docRef.id,
+    };
+    const currentList = cachedHomeBookingsMap[targetLabId] || [];
+    cachedHomeBookingsMap[targetLabId] = [newBooking, ...currentList.filter((b) => b.id !== docRef.id)];
+    return newBooking;
+  } catch (error) {
+    console.error('Error adding home booking to Firestore:', error);
+    handleFirestoreError(error, OperationType.CREATE, HOME_BOOKINGS_COLLECTION);
+    throw error;
+  }
+}
+
+export async function updateHomeBookingStatusInFirestore(
+  bookingId: string,
+  status: HomeSampleBooking['status'],
+  extraUpdates?: Partial<HomeSampleBooking>
+): Promise<void> {
+  const cleanUpdates = sanitizeForFirestore({
+    status,
+    ...extraUpdates,
+    updatedAt: new Date().toISOString(),
+  });
+
+  try {
+    const docRef = doc(firestoreDb, HOME_BOOKINGS_COLLECTION, bookingId);
+    await updateDoc(docRef, cleanUpdates);
+    for (const labId of Object.keys(cachedHomeBookingsMap)) {
+      cachedHomeBookingsMap[labId] = cachedHomeBookingsMap[labId].map((b) =>
+        b.id === bookingId ? { ...b, ...cleanUpdates } : b
+      );
+    }
+  } catch (error) {
+    console.error('Error updating home booking in Firestore:', error);
+    handleFirestoreError(error, OperationType.UPDATE, `${HOME_BOOKINGS_COLLECTION}/${bookingId}`);
+    throw error;
+  }
+}
+
+// -------------------------------------------------------------
+// PUBLIC REPORT QR VERIFICATION
+// -------------------------------------------------------------
+
+export async function getReportForVerification(
+  reportIdentifier: string
+): Promise<{ report: PathologyReport; lab?: Laboratory } | null> {
+  try {
+    const cleanId = reportIdentifier.trim();
+    // 1. Try to find in cache first
+    for (const labId of Object.keys(cachedReportsMap)) {
+      const match = cachedReportsMap[labId].find(
+        (r) => r.id === cleanId || r.reportId === cleanId
+      );
+      if (match) {
+        const lab = cachedLabs.find((l) => l.id === match.labId);
+        return { report: match, lab };
+      }
+    }
+
+    // 2. Query Firestore by doc id or reportId field
+    try {
+      const docSnap = await getDocFromServer(doc(firestoreDb, REPORTS_COLLECTION, cleanId));
+      if (docSnap.exists()) {
+        const rData = { ...docSnap.data(), id: docSnap.id } as PathologyReport;
+        const lab = cachedLabs.find((l) => l.id === rData.labId);
+        return { report: rData, lab };
+      }
+    } catch {
+      // If direct doc lookup fails, query collection
+    }
+
+    const q = query(
+      collection(firestoreDb, REPORTS_COLLECTION),
+      where('reportId', '==', cleanId)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const docSnap = snap.docs[0];
+      const rData = { ...docSnap.data(), id: docSnap.id } as PathologyReport;
+      const lab = cachedLabs.find((l) => l.id === rData.labId);
+      return { report: rData, lab };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Error retrieving report for verification:', err);
+    return null;
+  }
+}
+
+// -------------------------------------------------------------
 // STATS / METRICS HELPER
 // -------------------------------------------------------------
 
@@ -1168,6 +1384,7 @@ export function getCachedPathologyData() {
   return {
     patientsMap: cachedPatientsMap,
     reportsMap: cachedReportsMap,
+    homeBookingsMap: cachedHomeBookingsMap,
     templates: cachedTemplates,
     labs: cachedLabs,
     settings: cachedSettings,

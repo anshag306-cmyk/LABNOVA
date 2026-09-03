@@ -33,10 +33,14 @@ import {
   Eye,
   EyeOff,
   QrCode,
+  Upload,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { LabSettings, PrePrintedLetterheadConfig, DigitalLetterheadConfig } from '../../types';
 import { DEFAULT_LAB_SETTINGS } from '../../data/pathologyTemplates';
 import { saveLabSettingsToFirestore } from '../../services/pathologyFirebase';
+import { compressImageFile, optimizeBase64DataUrl } from '../../utils/imageCompressor';
 import {
   getPrePrintedConfig,
   savePrePrintedConfig,
@@ -49,10 +53,13 @@ import {
 } from '../../services/prePrintedConfig';
 import { generateAlignmentTestGridPdf } from '../../services/pdfReportGenerator';
 import { useAuth } from '../../context/AuthContext';
+import { LetterheadTemplatesCatalog } from './LetterheadTemplatesCatalog';
+import { getLetterheadTemplateById } from '../../data/letterheadTemplatesData';
 
 interface LabNovaSettingsViewProps {
   currentSettings?: LabSettings;
   onSettingsUpdated?: (newSettings: LabSettings) => void;
+  initialSection?: 'general' | 'letterhead_templates';
 }
 
 const PRESET_HEADER_COLORS = [
@@ -67,14 +74,30 @@ const PRESET_HEADER_COLORS = [
 export const LabNovaSettingsView: React.FC<LabNovaSettingsViewProps> = ({
   currentSettings,
   onSettingsUpdated,
+  initialSection = 'general',
 }) => {
   const { currentLab, isAdmin, isStaff } = useAuth();
+
+  // Settings Sub-Section: Facility General Profile & Calibration vs Letterhead Templates
+  const [activeSettingsSection, setActiveSettingsSection] = useState<'general' | 'letterhead_templates'>(
+    initialSection
+  );
 
   const [formData, setFormData] = useState<LabSettings>(() => {
     return currentSettings
       ? { ...currentSettings, labId: currentLab.id }
       : { ...DEFAULT_LAB_SETTINGS, labId: currentLab.id };
   });
+
+  useEffect(() => {
+    if (currentSettings) {
+      setFormData((prev) => ({
+        ...prev,
+        ...currentSettings,
+        labId: currentLab.id,
+      }));
+    }
+  }, [currentSettings, currentLab.id]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -91,6 +114,57 @@ export const LabNovaSettingsView: React.FC<LabNovaSettingsViewProps> = ({
   const [prePrintedConfig, setPrePrintedConfig] = useState<PrePrintedLetterheadConfig>(getPrePrintedConfig());
   const [prePrintedSaved, setPrePrintedSaved] = useState(false);
   const [nudgeStep, setNudgeStep] = useState<1 | 5>(1);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const [isProcessingLogo, setIsProcessingLogo] = useState(false);
+
+  const handleLogoFileUpload = async (file?: File | null) => {
+    setLogoUploadError(null);
+    if (!file) return;
+
+    // Supported formats: PNG, JPG, JPEG, SVG
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      setLogoUploadError('Please upload a valid PNG, JPG, or SVG image file.');
+      return;
+    }
+
+    // Limit raw file to 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadError('Image size must be under 5MB.');
+      return;
+    }
+
+    setIsProcessingLogo(true);
+    try {
+      // Compress and scale to high-DPI dimensions suitable for reports & headers (~15-40KB)
+      const compressedDataUrl = await compressImageFile(file, {
+        maxWidth: 360,
+        maxHeight: 180,
+        quality: 0.85,
+        maxSizeBytes: 80 * 1024,
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        logoUrl: compressedDataUrl,
+      }));
+      setSavedSuccess(false);
+    } catch (err: any) {
+      console.error('Error compressing logo image:', err);
+      setLogoUploadError('Failed to process image. Please try another PNG or JPG image.');
+    } finally {
+      setIsProcessingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    if (!isAdmin) return;
+    setFormData((prev) => ({
+      ...prev,
+      logoUrl: '',
+    }));
+    setSavedSuccess(false);
+  };
 
   useEffect(() => {
     if (currentSettings) {
@@ -217,11 +291,22 @@ export const LabNovaSettingsView: React.FC<LabNovaSettingsViewProps> = ({
     setSavedSuccess(false);
 
     try {
-      await saveLabSettingsToFirestore(formData, currentLab.id);
+      // Ensure logo is optimized to keep document size < 100KB
+      let finalLogo = formData.logoUrl || '';
+      if (finalLogo && finalLogo.startsWith('data:image/') && finalLogo.length > 100 * 1024) {
+        finalLogo = await optimizeBase64DataUrl(finalLogo, 80 * 1024);
+      }
+
+      const settingsToSave: LabSettings = {
+        ...formData,
+        logoUrl: finalLogo,
+      };
+
+      await saveLabSettingsToFirestore(settingsToSave, currentLab.id);
       setIsSaving(false);
       setSavedSuccess(true);
       if (onSettingsUpdated) {
-        onSettingsUpdated(formData);
+        onSettingsUpdated(settingsToSave);
       }
       setTimeout(() => setSavedSuccess(false), 4000);
     } catch (err: any) {
@@ -257,8 +342,72 @@ export const LabNovaSettingsView: React.FC<LabNovaSettingsViewProps> = ({
     }
   };
 
+  const activeTemplate = getLetterheadTemplateById(formData.letterheadTemplateId);
+
   return (
-    <form onSubmit={handleSave} className="space-y-6">
+    <div className="space-y-6">
+      {/* Settings Breadcrumb & Sub-Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            id="tab-settings-facility"
+            type="button"
+            onClick={() => setActiveSettingsSection('general')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              activeSettingsSection === 'general'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Building className="w-3.5 h-3.5" />
+            <span>Facility Profile & Calibration</span>
+          </button>
+
+          <button
+            id="tab-settings-letterhead-templates"
+            type="button"
+            onClick={() => setActiveSettingsSection('letterhead_templates')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              activeSettingsSection === 'letterhead_templates'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Letterhead Templates</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                activeSettingsSection === 'letterhead_templates'
+                  ? 'bg-white/20 text-white border border-white/20'
+                  : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+              }`}
+            >
+              Active: {activeTemplate.name}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+          <span>Settings</span>
+          <span>→</span>
+          <span className="font-bold text-slate-800 dark:text-slate-200">
+            {activeSettingsSection === 'general' ? 'Facility Profile & Calibration' : 'Letterhead Templates'}
+          </span>
+        </div>
+      </div>
+
+      {activeSettingsSection === 'letterhead_templates' ? (
+        <LetterheadTemplatesCatalog
+          currentSettings={formData}
+          onSettingsUpdated={(updatedSettings) => {
+            setFormData(updatedSettings);
+            if (onSettingsUpdated) {
+              onSettingsUpdated(updatedSettings);
+            }
+          }}
+        />
+      ) : (
+        <form onSubmit={handleSave} className="space-y-6">
       {/* Read-Only Notice for Staff */}
       {!isAdmin && (
         <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
@@ -481,23 +630,141 @@ export const LabNovaSettingsView: React.FC<LabNovaSettingsViewProps> = ({
               </div>
             </div>
 
+            {/* Upload Laboratory Logo */}
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Custom Logo URL (Printed on Top Left of Report)
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Laboratory Official Logo (PNG, JPG, SVG)
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  disabled={!isAdmin}
-                  value={formData.logoUrl || ''}
-                  onChange={(e) => handleChange('logoUrl', e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 disabled:opacity-75"
-                />
+
+              {formData.logoUrl ? (
+                <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-14 h-14 rounded-lg bg-white p-1 shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
+                      <img
+                        src={formData.logoUrl}
+                        alt="Laboratory Logo Preview"
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        Custom Lab Emblem Active
+                      </p>
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        ✓ Printed automatically on top of all reports & headers
+                      </p>
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <label className="cursor-pointer px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors">
+                        {isProcessingLogo ? (
+                          <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5 text-blue-600" />
+                        )}
+                        <span>{isProcessingLogo ? 'Optimizing...' : 'Change'}</span>
+                        <input
+                          type="file"
+                          disabled={isProcessingLogo}
+                          accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                          className="hidden"
+                          onChange={(e) => handleLogoFileUpload(e.target.files?.[0])}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        disabled={isProcessingLogo}
+                        className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors disabled:opacity-50"
+                        title="Remove custom logo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label
+                    className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                      isAdmin && !isProcessingLogo
+                        ? 'border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/20'
+                        : 'border-slate-200 dark:border-slate-800 opacity-60 cursor-not-allowed'
+                    }`}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (isAdmin && !isProcessingLogo && e.dataTransfer.files?.[0]) {
+                        handleLogoFileUpload(e.dataTransfer.files[0]);
+                      }
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2">
+                      {isProcessingLogo ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Upload className="w-5 h-5" />
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {isProcessingLogo ? 'Optimizing & Scaling Logo...' : 'Click to upload or drag & drop logo'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">
+                      Supports PNG, JPG, or SVG (Automatically optimized for web & PDF reports)
+                    </span>
+                    <input
+                      type="file"
+                      disabled={!isAdmin || isProcessingLogo}
+                      accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                      className="hidden"
+                      onChange={(e) => handleLogoFileUpload(e.target.files?.[0])}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {logoUploadError && (
+                <p className="text-[11px] text-rose-500 font-medium mt-1.5 flex items-center gap-1">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  {logoUploadError}
+                </p>
+              )}
+            </div>
+
+            {/* Active Letterhead Template Preview & Catalog Link */}
+            <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0"
+                  style={{ backgroundColor: activeTemplate.primaryColor }}
+                >
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      {activeTemplate.name}
+                    </span>
+                    <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                      Active Letterhead
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    A4 report header layout for diagnostic reports & invoices
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Leaves empty to use standard crisp SVG clinical laboratory emblem.
-              </p>
+
+              <button
+                type="button"
+                onClick={() => setActiveSettingsSection('letterhead_templates')}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1 shrink-0 self-start sm:self-auto shadow-xs"
+              >
+                <span>Change Template</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
@@ -1303,5 +1570,7 @@ export const LabNovaSettingsView: React.FC<LabNovaSettingsViewProps> = ({
         </div>
       </div>
     </form>
+      )}
+    </div>
   );
 };

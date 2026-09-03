@@ -20,13 +20,17 @@ import {
 interface PublicHeroProps {
   onExploreTests: () => void;
   onOpenHomeBooking: () => void;
-  onOpenStaffLogin: () => void;
+  onOpenLogin?: () => void;
+  onOpenStaffLogin?: () => void;
+  onVerifyReportClick?: (reportId?: string) => void;
 }
 
 export const PublicHero: React.FC<PublicHeroProps> = ({
   onExploreTests,
   onOpenHomeBooking,
+  onOpenLogin,
   onOpenStaffLogin,
+  onVerifyReportClick,
 }) => {
   const [trackingCode, setTrackingCode] = useState('');
   const [trackedStatus, setTrackedStatus] = useState<{
@@ -105,14 +109,6 @@ export const PublicHero: React.FC<PublicHeroProps> = ({
               >
                 <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 <span>Book Home Sample Collection</span>
-              </button>
-
-              <button
-                onClick={onOpenStaffLogin}
-                className="px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-teal-400 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Staff Portal</span>
               </button>
             </div>
 

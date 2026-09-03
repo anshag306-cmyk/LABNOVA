@@ -8,19 +8,23 @@ import { PublicFAQsAndContact } from './PublicFAQsAndContact';
 import { PublicFooter } from './PublicFooter';
 import { PublicTestDetailModal } from './PublicTestDetailModal';
 import { PublicHomeCollectionModal } from './PublicHomeCollectionModal';
+import { PublicReportVerificationModal } from './PublicReportVerificationModal';
 import { TestTemplate } from '../../types';
 import { DEFAULT_TEST_TEMPLATES } from '../../data/pathologyTemplates';
 import { subscribeToTestTemplates } from '../../services/pathologyFirebase';
 
 interface PublicHomePageProps {
-  onOpenStaffLogin: () => void;
+  onOpenLogin?: () => void;
+  onOpenStaffLogin?: () => void;
   onGoToDashboard: () => void;
 }
 
 export const PublicHomePage: React.FC<PublicHomePageProps> = ({
+  onOpenLogin,
   onOpenStaffLogin,
   onGoToDashboard,
 }) => {
+  const handleLoginClick = onOpenLogin || onOpenStaffLogin;
   // Theme toggle state
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
 
@@ -35,6 +39,23 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
   const [preSelectedTestForBooking, setPreSelectedTestForBooking] = useState<TestTemplate | null>(
     null
   );
+
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [verifyReportId, setVerifyReportId] = useState<string>('');
+
+  // Check URL parameters on mount for ?verify= or ?report=
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const verifyParam = urlParams.get('verify') || urlParams.get('report') || urlParams.get('accession');
+      if (verifyParam) {
+        setVerifyReportId(verifyParam);
+        setIsVerifyModalOpen(true);
+      }
+    } catch {
+      // Ignore if URLSearchParams is unavailable
+    }
+  }, []);
 
   // Synchronize theme with html tag
   useEffect(() => {
@@ -81,13 +102,21 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
     setIsHomeBookingOpen(true);
   };
 
+  const handleOpenVerifyModal = (reportId?: string) => {
+    if (reportId) {
+      setVerifyReportId(reportId);
+    }
+    setIsVerifyModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors selection:bg-teal-500 selection:text-white">
-      {/* Sticky Top Public Header with Staff Login */}
+      {/* Sticky Top Public Header with Login */}
       <PublicNavbar
-        onOpenStaffLogin={onOpenStaffLogin}
+        onOpenLogin={handleLoginClick}
         onGoToDashboard={onGoToDashboard}
         onOpenHomeBooking={handleOpenHomeBookingGeneric}
+        onVerifyReportClick={() => handleOpenVerifyModal()}
         themeMode={themeMode}
         toggleTheme={toggleTheme}
       />
@@ -98,7 +127,8 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
         <PublicHero
           onExploreTests={handleExploreTests}
           onOpenHomeBooking={handleOpenHomeBookingGeneric}
-          onOpenStaffLogin={onOpenStaffLogin}
+          onOpenLogin={handleLoginClick}
+          onVerifyReportClick={(repId) => handleOpenVerifyModal(repId)}
         />
 
         {/* Public Services & Tests Section (Reusing Existing Test Data) */}
@@ -121,8 +151,9 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
 
       {/* Comprehensive Medical Footer */}
       <PublicFooter
-        onOpenStaffLogin={onOpenStaffLogin}
+        onOpenLogin={handleLoginClick}
         onOpenHomeBooking={handleOpenHomeBookingGeneric}
+        onVerifyReportClick={() => handleOpenVerifyModal()}
       />
 
       {/* Test Detail Parameter Modal */}
@@ -142,6 +173,14 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
         preSelectedTest={preSelectedTestForBooking}
         currency="₹"
       />
+
+      {/* Public Online QR / NABL Report Verification Modal */}
+      <PublicReportVerificationModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+        initialReportId={verifyReportId}
+      />
     </div>
   );
 };
+

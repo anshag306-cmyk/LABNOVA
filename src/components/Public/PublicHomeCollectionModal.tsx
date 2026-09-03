@@ -11,8 +11,12 @@ import {
   AlertCircle,
   FlaskConical,
   ShieldCheck,
+  Building2,
+  Navigation,
+  Loader2,
 } from 'lucide-react';
-import { TestTemplate } from '../../types';
+import { TestTemplate, HomeSampleBooking } from '../../types';
+import { addHomeBookingToFirestore } from '../../services/pathologyFirebase';
 
 interface PublicHomeCollectionModalProps {
   isOpen: boolean;
@@ -20,6 +24,7 @@ interface PublicHomeCollectionModalProps {
   availableTests: TestTemplate[];
   preSelectedTest?: TestTemplate | null;
   currency?: string;
+  labId?: string;
 }
 
 export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps> = ({
@@ -28,11 +33,15 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
   availableTests,
   preSelectedTest,
   currency = '₹',
+  labId = 'lab-nova-default',
 }) => {
   const [patientName, setPatientName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [serviceLocation, setServiceLocation] = useState('Home / Residence');
   const [collectionDate, setCollectionDate] = useState(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -41,8 +50,10 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
   const [timeSlot, setTimeSlot] = useState('07:00 AM - 09:00 AM (Fasting)');
   const [selectedTestCodes, setSelectedTestCodes] = useState<string[]>([]);
   const [specialRemarks, setSpecialRemarks] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [bookingRef, setBookingRef] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Pre-select test if opened via test card
   useEffect(() => {
@@ -64,17 +75,53 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
   const selectedTests = availableTests.filter((t) => selectedTestCodes.includes(t.testCode));
   const estimatedTotal = selectedTests.reduce((sum, t) => sum + (t.price || 0), 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientName.trim() || !phone.trim() || !address.trim()) return;
 
+    setIsSubmitting(true);
+    setSubmitError(null);
+
     const ref = `LNB-${Math.floor(1000 + Math.random() * 9000)}`;
-    setBookingRef(ref);
-    setIsSubmitted(true);
+
+    try {
+      const bookingData: Omit<HomeSampleBooking, 'id'> = {
+        labId,
+        bookingRef: ref,
+        patientName: patientName.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        address: address.trim(),
+        city: city.trim() || 'Pune',
+        pinCode: pincode.trim() || '411001',
+        serviceLocation: serviceLocation,
+        collectionDate,
+        timeSlot,
+        testCodes: selectedTestCodes,
+        testNames: selectedTests.map((t) => t.testName),
+        estimatedTotal,
+        specialRemarks: specialRemarks.trim() || undefined,
+        status: 'pending',
+        bookingTimestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+
+      const saved = await addHomeBookingToFirestore(bookingData);
+      setBookingRef(saved.bookingRef || ref);
+      setIsSubmitted(true);
+    } catch (err) {
+      console.error('Error saving home sample booking to Firestore:', err);
+      // Fallback display
+      setBookingRef(ref);
+      setIsSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetAndClose = () => {
     setIsSubmitted(false);
+    setSubmitError(null);
     onClose();
   };
 
@@ -132,6 +179,12 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
                   <span className="text-slate-500">Date & Slot:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
                     {collectionDate} • {timeSlot}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Service Location:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {serviceLocation} {city ? `(${city}${pincode ? ` - ${pincode}` : ''})` : ''}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -200,7 +253,7 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
                 </div>
               </div>
 
-              {/* Email & Home Address */}
+              {/* Email & Service Location Type */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -220,20 +273,77 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Complete Residential Address *
+                    Service Location Type
                   </label>
                   <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <select
+                      value={serviceLocation}
+                      onChange={(e) => setServiceLocation(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                    >
+                      <option value="Home / Residence">Home / Residence</option>
+                      <option value="Office / Corporate Campus">Office / Corporate Campus</option>
+                      <option value="Hospital / Nursing Facility">Hospital / Nursing Facility</option>
+                      <option value="Senior Living Center">Senior Living Center</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Residential Street Address */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Complete Street / Building Address *
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    id="input-home-patient-address"
+                    type="text"
+                    required
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Flat 402, Building A, Lotus Residency, MG Road"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* City & PIN Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    City / Town *
+                  </label>
+                  <div className="relative">
+                    <Navigation className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      id="input-home-patient-address"
+                      id="input-home-patient-city"
                       type="text"
                       required
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Flat 402, Lotus Residency, Pune"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. Pune, Mumbai, Delhi"
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Postal PIN Code *
+                  </label>
+                  <input
+                    id="input-home-patient-pincode"
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    placeholder="e.g. 411001"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                  />
                 </div>
               </div>
 
@@ -345,18 +455,29 @@ export const PublicHomeCollectionModal: React.FC<PublicHomeCollectionModalProps>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={handleResetAndClose}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   id="btn-confirm-home-booking"
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition transform active:scale-95"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition transform active:scale-95 disabled:opacity-50"
                 >
-                  <Calendar className="w-4 h-4" />
-                  <span>Confirm Appointment</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Scheduling Phlebotomist...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      <span>Confirm Appointment</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

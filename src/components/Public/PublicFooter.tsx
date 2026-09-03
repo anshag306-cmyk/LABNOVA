@@ -10,17 +10,24 @@ import {
   Phone,
   Mail,
   MapPin,
+  QrCode,
+  FileCheck2,
 } from 'lucide-react';
 
 interface PublicFooterProps {
-  onOpenStaffLogin: () => void;
+  onOpenLogin?: () => void;
+  onOpenStaffLogin?: () => void;
   onOpenHomeBooking: () => void;
+  onVerifyReportClick?: () => void;
 }
 
 export const PublicFooter: React.FC<PublicFooterProps> = ({
+  onOpenLogin,
   onOpenStaffLogin,
   onOpenHomeBooking,
+  onVerifyReportClick,
 }) => {
+  const handleLoginClick = onOpenLogin || onOpenStaffLogin;
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -115,31 +122,34 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
             </ul>
           </div>
 
-          {/* Col 3: Secure Staff Access & Compliance */}
+          {/* Col 3: Report Verification & Security Compliance */}
           <div className="lg:col-span-4 space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-              Authorized Clinician Portal
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+              <QrCode className="w-4 h-4 text-teal-400" />
+              <span>Diagnostic Report Verification</span>
             </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Laboratory staff, phlebotomists, and consulting pathologists can log in to access the
-              operational LIMS worklist, accession specimens, and authorize digital reports.
+              Patients and consulting physicians can verify the authenticity of any clinical laboratory
+              report by scanning its QR code or submitting the Report ID.
             </p>
 
-            <button
-              id="footer-btn-staff-login"
-              onClick={onOpenStaffLogin}
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-teal-500/50 text-white text-xs font-bold flex items-center justify-center gap-2.5 shadow-sm transition group"
-            >
-              <Lock className="w-3.5 h-3.5 text-teal-400 group-hover:rotate-6 transition-transform" />
-              <span>Staff & Pathologist Sign In</span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition" />
-            </button>
+            {onVerifyReportClick && (
+              <button
+                id="footer-btn-verify-report"
+                onClick={onVerifyReportClick}
+                className="w-full py-2.5 px-4 rounded-xl bg-teal-950/80 hover:bg-teal-900/80 border border-teal-700/60 hover:border-teal-500 text-teal-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2.5 shadow-sm transition group"
+              >
+                <QrCode className="w-4 h-4 text-teal-400 group-hover:scale-110 transition-transform" />
+                <span>Verify Diagnostic Report Authenticity</span>
+                <ChevronRight className="w-3.5 h-3.5 text-teal-400 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
 
             <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <span>
-                <strong>Zero Public Patient Data:</strong> Patient demographics and clinical reports
-                are isolated by Firestore security rules.
+                <strong>Zero Public Patient Data:</strong> Patient records and clinical reports
+                are protected with cryptographic hashing and role-based data isolation.
               </span>
             </div>
           </div>
@@ -157,11 +167,23 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
           </p>
         </div>
 
-        {/* Bottom Bar: Copyright & Back to Top */}
+        {/* Bottom Bar: Copyright, Login, & Back to Top */}
         <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <div>
-            © {new Date().getFullYear()} LabNova Pathology & Diagnostic Laboratory. All rights
-            reserved.
+          <div className="flex items-center gap-4 flex-wrap">
+            <span>
+              © {new Date().getFullYear()} LabNova Pathology & Diagnostic Laboratory. All rights
+              reserved.
+            </span>
+            {handleLoginClick && (
+              <button
+                id="footer-btn-login-signin"
+                onClick={handleLoginClick}
+                className="hover:text-teal-400 text-slate-400 font-medium flex items-center gap-1.5 transition"
+              >
+                <Lock className="w-3.5 h-3.5 text-teal-500" />
+                <span>Login / Sign In</span>
+              </button>
+            )}
           </div>
 
           <button

@@ -1,7 +1,50 @@
 import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 import { PathologyReport, LabSettings, PrePrintedLetterheadConfig, DigitalLetterheadConfig } from '../types';
 import { DEFAULT_LAB_SETTINGS } from '../data/pathologyTemplates';
 import { DEFAULT_PREPRINTED_CONFIG, getDigitalConfig, getPrePrintedConfig } from './prePrintedConfig';
+import { getLetterheadTemplateById } from '../data/letterheadTemplatesData';
+
+function hexToRgb(hex: string): [number, number, number] {
+  let c = hex.replace('#', '');
+  if (c.length === 3) {
+    c = c.split('').map((char) => char + char).join('');
+  }
+  const num = parseInt(c, 16) || 0;
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+/**
+ * Draws a real, high-density scannable vector QR Code directly onto the jsPDF canvas.
+ * Encodes the exact verification URL pointing to the diagnostic report verification portal.
+ */
+function drawRealQrCode(doc: jsPDF, text: string, x: number, y: number, sizeMm: number = 13) {
+  try {
+    const qr = QRCode.create(text, { errorCorrectionLevel: 'M' });
+    const moduleCount = qr.modules.size;
+    const moduleSize = sizeMm / moduleCount;
+
+    // Draw white background backing
+    doc.setFillColor(255, 255, 255);
+    doc.rect(x - 0.5, y - 0.5, sizeMm + 1.0, sizeMm + 1.0, 'F');
+
+    // Draw QR modules with crisp vector squares
+    doc.setFillColor(15, 23, 42); // slate-900
+    for (let r = 0; r < moduleCount; r++) {
+      for (let c = 0; c < moduleCount; c++) {
+        if (qr.modules.get(r, c)) {
+          doc.rect(x + c * moduleSize, y + r * moduleSize, moduleSize + 0.05, moduleSize + 0.05, 'F');
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('QR code generation fallback to vector frame:', err);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(x, y, sizeMm, sizeMm, 'F');
+    doc.setDrawColor(15, 23, 42);
+    doc.rect(x, y, sizeMm, sizeMm, 'D');
+  }
+}
 
 /**
  * Format ISO date-time into clean, standardized medical report date format (e.g., 01-Sep-2026, 10:30 AM).
@@ -98,8 +141,11 @@ export function generatePathologyPdf(
   const tCol4 = effLeft + col1Width + col2Width + col3Width + 2;
   const tCol5 = effLeft + col1Width + col2Width + col3Width + col4Width + 2;
 
-  // Primary Brand Colors
-  const primaryNavy = [15, 23, 42]; // Slate-900
+  // Primary Brand Colors & Selected Letterhead Template
+  const letterheadTemplate = getLetterheadTemplateById(settings.letterheadTemplateId);
+  const primaryNavy = hexToRgb(letterheadTemplate.primaryColor || settings.headerColor || '#0f172a');
+  const secondaryNavy = hexToRgb(letterheadTemplate.secondaryColor || '#1e293b');
+  const badgeAccent = hexToRgb(letterheadTemplate.badgeColor || '#059669');
   const headerCardBg = [248, 250, 252]; // Slate-50
   const borderSlate = [203, 213, 225]; // Slate-300
   const textDark = [15, 23, 42]; // Slate-900
@@ -121,21 +167,67 @@ export function generatePathologyPdf(
   const singleRowHeight = Math.max(6.8, baseFontSize * 0.80);
 
   /**
-   * Draws the Accredited Laboratory Letterhead Header on Page 1.
+   * Draws the Accredited Laboratory Letterhead Header on Page 1 based on active letterhead template.
    */
   const drawPage1Header = () => {
     // Top banner background
     doc.setFillColor(primaryNavy[0], primaryNavy[1], primaryNavy[2]);
     doc.rect(effLeft, y, printableWidth, 27, 'F');
 
-    // Vector Medical Cross Emblem / Shield Logo
+    // Template specific decorative top accent bars
+    if (letterheadTemplate.id === 'premium_laboratory') {
+      // Elegant gold trim on top
+      doc.setFillColor(217, 119, 6); // Amber gold #d97706
+      doc.rect(effLeft, y, printableWidth, 1.2, 'F');
+    } else if (letterheadTemplate.id === 'clean_medical') {
+      // Emerald top bar
+      doc.setFillColor(16, 185, 129); // Emerald #10b981
+      doc.rect(effLeft, y, printableWidth, 1.2, 'F');
+    } else if (letterheadTemplate.id === 'modern_diagnostic') {
+      // Sky blue accent trim
+      doc.setFillColor(56, 189, 248); // Sky #38bdf8
+      doc.rect(effLeft, y, printableWidth, 1.0, 'F');
+    } else if (letterheadTemplate.id === 'corporate_lab') {
+      // Corporate dual tier top rule
+      doc.setFillColor(59, 130, 246); // Blue #3b82f6
+      doc.rect(effLeft, y, printableWidth, 1.2, 'F');
+    }
+
+    // Vector Medical Cross Emblem / Shield Logo or Custom Uploaded Logo Image
     const logoX = effLeft + 4;
     const logoY = y + 4.5;
-    doc.setFillColor(37, 99, 235); // Blue-600 circle
-    doc.circle(logoX + 8.5, logoY + 9, 8.5, 'F');
-    doc.setFillColor(255, 255, 255); // White cross
-    doc.rect(logoX + 7.2, logoY + 3.8, 2.6, 10.4, 'F');
-    doc.rect(logoX + 3.3, logoY + 7.7, 10.4, 2.6, 'F');
+    let logoDrawn = false;
+
+    if (settings.logoUrl && (settings.logoUrl.startsWith('data:image/') || settings.logoUrl.startsWith('http'))) {
+      try {
+        const format = settings.logoUrl.includes('image/png')
+          ? 'PNG'
+          : settings.logoUrl.includes('image/jpeg') || settings.logoUrl.includes('image/jpg')
+          ? 'JPEG'
+          : 'PNG';
+        doc.addImage(settings.logoUrl, format, logoX, logoY, 18, 18);
+        logoDrawn = true;
+      } catch (imgErr) {
+        console.warn('Could not draw uploaded logo in PDF, using vector emblem fallback:', imgErr);
+      }
+    }
+
+    if (!logoDrawn) {
+      if (letterheadTemplate.id === 'premium_laboratory') {
+        doc.setFillColor(217, 119, 6); // Gold emblem
+        doc.circle(logoX + 8.5, logoY + 9, 8.5, 'F');
+        doc.setFillColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('★', logoX + 6.2, logoY + 11.5);
+      } else {
+        doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+        doc.circle(logoX + 8.5, logoY + 9, 8.5, 'F');
+        doc.setFillColor(255, 255, 255); // White cross
+        doc.rect(logoX + 7.2, logoY + 3.8, 2.6, 10.4, 'F');
+        doc.rect(logoX + 3.3, logoY + 7.7, 10.4, 2.6, 'F');
+      }
+    }
 
     // Laboratory Name & Subtitles
     doc.setTextColor(255, 255, 255);
@@ -159,9 +251,9 @@ export function generatePathologyPdf(
     // Right-side Accreditation Badge
     const rightBadgeWidth = 46;
     const rightBadgeX = pageWidth - effRight - rightBadgeWidth - 2;
-    doc.setFillColor(30, 41, 59); // Slate-800 accent
+    doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]); // Secondary tone accent
     doc.roundedRect(rightBadgeX, y + 3, rightBadgeWidth, 21, 1.5, 1.5, 'F');
-    doc.setTextColor(52, 211, 153); // Emerald-400
+    doc.setTextColor(badgeAccent[0], badgeAccent[1], badgeAccent[2]); // Dynamic accent badge
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.text('NABL ACCREDITED', rightBadgeX + 6, y + 8);
@@ -386,20 +478,13 @@ export function generatePathologyPdf(
         doc.text('Daily Sign / QC In-Charge', effLeft + 4, footerY + 14.5);
       }
 
-      // Center: Digital Signature Stamp & QR Matrix Simulation
+      // Center: Digital Signature Stamp & Real Scannable QR Matrix
       if (showQr) {
         const qrX = pageWidth / 2 - 22;
-        const qrY = footerY + 2.5;
-        doc.setFillColor(255, 255, 255);
-        doc.rect(qrX, qrY, 13, 13, 'F');
-        doc.setDrawColor(15, 23, 42);
-        doc.rect(qrX, qrY, 13, 13, 'D');
-        doc.setFillColor(15, 23, 42);
-        doc.rect(qrX + 1.2, qrY + 1.2, 3.2, 3.2, 'F');
-        doc.rect(qrX + 8.6, qrY + 1.2, 3.2, 3.2, 'F');
-        doc.rect(qrX + 1.2, qrY + 8.6, 3.2, 3.2, 'F');
-        doc.rect(qrX + 5.5, qrY + 5.5, 2, 2, 'F');
-        doc.rect(qrX + 8.8, qrY + 8.8, 2.8, 2.8, 'F');
+        const qrY = footerY + 2.0;
+        const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://labnova.com';
+        const verificationUrl = `${originUrl}?verify=${encodeURIComponent(report.reportId || report.id)}`;
+        drawRealQrCode(doc, verificationUrl, qrX, qrY, 13);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.8);
@@ -410,7 +495,7 @@ export function generatePathologyPdf(
         doc.setTextColor(100, 116, 139);
         const hash = (report.digitalSignatureHash || 'e7c10b4f8a92e1069d35fa7c844bf210').slice(0, 24);
         doc.text(`Hash: ${hash}...`, qrX + 16, footerY + 9.5);
-        doc.text('21 CFR Part 11 / IT Act Compliant', qrX + 16, footerY + 13.5);
+        doc.text('Scan QR to verify live NABL authenticity', qrX + 16, footerY + 13.5);
       }
 
       // Right: Consultant Pathologist (Verified By)
@@ -1099,20 +1184,13 @@ export function generatePrePrintedPathologyPdf(
         doc.text('Daily Sign / QC In-Charge', effLeft + 4, footerY + 14);
       }
 
-      // Center: Digital Verification Stamp & Hash
+      // Center: Digital Verification Stamp & Real Scannable QR Matrix
       if (showQr) {
         const qrX = pageWidth / 2 - 20;
         const qrY = footerY + 2;
-        doc.setFillColor(255, 255, 255);
-        doc.rect(qrX, qrY, 12, 12, 'F');
-        doc.setDrawColor(15, 23, 42);
-        doc.rect(qrX, qrY, 12, 12, 'D');
-        doc.setFillColor(15, 23, 42);
-        doc.rect(qrX + 1, qrY + 1, 3, 3, 'F');
-        doc.rect(qrX + 8, qrY + 1, 3, 3, 'F');
-        doc.rect(qrX + 1, qrY + 8, 3, 3, 'F');
-        doc.rect(qrX + 5, qrY + 5, 2, 2, 'F');
-        doc.rect(qrX + 8, qrY + 8, 2.5, 2.5, 'F');
+        const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://labnova.com';
+        const verificationUrl = `${originUrl}?verify=${encodeURIComponent(report.reportId || report.id)}`;
+        drawRealQrCode(doc, verificationUrl, qrX, qrY, 12);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.8);
@@ -1123,7 +1201,7 @@ export function generatePrePrintedPathologyPdf(
         doc.setTextColor(100, 116, 139);
         const hash = (report.digitalSignatureHash || 'e7c10b4f8a92e1069d35fa7c844bf210').slice(0, 24);
         doc.text(`Hash: ${hash}...`, qrX + 15, footerY + 9.5);
-        doc.text('21 CFR Part 11 / IT Act Compliant', qrX + 15, footerY + 13.5);
+        doc.text('Scan QR to verify authenticity', qrX + 15, footerY + 13.5);
       }
 
       // Right: Consultant Pathologist (Verified By)
@@ -1457,5 +1535,8 @@ export function generateAlignmentTestGridPdf(customConfig?: PrePrintedLetterhead
 
   doc.save(`LabNova_Letterhead_Calibration_Grid_${Date.now()}.pdf`);
 }
+
+export const downloadPathologyReportPdf = generatePathologyPdf;
+export const generatePrePrintedPdf = generatePrePrintedPathologyPdf;
 
 

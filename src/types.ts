@@ -242,6 +242,7 @@ export interface Laboratory {
   technologistQualification: string;
   currency: string;
   headerColor: string;
+  letterheadTemplateId?: LetterheadTemplateId | string;
   createdAt: string;
   ownerEmail?: string;
   status: 'active' | 'pending' | 'suspended';
@@ -289,6 +290,29 @@ export type PathologyCategory =
   | 'Infectious Diseases'
   | 'Coagulation';
 
+export type LetterheadTemplateId =
+  | 'classic_medical'
+  | 'modern_diagnostic'
+  | 'minimal_professional'
+  | 'premium_laboratory'
+  | 'clean_medical'
+  | 'corporate_lab'
+  | 'modern_medical';
+
+export interface LetterheadTemplate {
+  id: LetterheadTemplateId;
+  name: string;
+  category: string;
+  tagline: string;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  badgeColor: string;
+  styleArchetype: string;
+  features: string[];
+  recommendedFor: string;
+}
+
 export interface LabSettings {
   labId?: string; // Tenant identifier
   labName: string;
@@ -309,6 +333,7 @@ export interface LabSettings {
   technologistQualification: string;
   currency: string;
   headerColor: string;
+  letterheadTemplateId?: LetterheadTemplateId | string;
 }
 
 export interface ReportLayoutVisibilityConfig {
@@ -326,6 +351,8 @@ export interface DigitalLetterheadConfig extends ReportLayoutVisibilityConfig {
   topOffsetMm: number; // Vertical position offset in mm: UP (negative) or DOWN (positive), default 0mm
   horizontalOffsetMm: number; // Horizontal position offset in mm: LEFT (negative) or RIGHT (positive), default 0mm
   tableFontSizePt: number; // Font size in points for test investigations table (default 9.5pt, range 7.5 - 13.0pt)
+  includePatientBox?: boolean; // Whether patient demographics box is styled with fill or minimal
+  includeSignatures?: boolean;
 }
 
 export interface PrePrintedLetterheadConfig extends ReportLayoutVisibilityConfig {
@@ -338,7 +365,6 @@ export interface PrePrintedLetterheadConfig extends ReportLayoutVisibilityConfig
   horizontalOffsetMm: number; // LEFT/RIGHT offset adjustment in mm
   includeSignatures: boolean; // Whether to print digital signatures or leave blank for physical stamp
   includePatientBox: boolean; // Whether to draw patient box with background or minimal clean lines
-  showCategoryHeaders: boolean; // Whether to group parameters by category
   tableFontSizePt?: number; // Font size in points for test investigations table (default 9.5pt, range 7.5 - 13.0pt)
 }
 
@@ -431,5 +457,32 @@ export interface PathologyStats {
   todayRevenue: number;
   totalRevenue: number;
   pendingPaymentAmount: number;
+}
+
+export type HomeBookingStatus = 'pending' | 'assigned' | 'collected' | 'completed' | 'cancelled';
+
+export interface HomeSampleBooking {
+  id: string;
+  bookingRef: string;
+  labId: string;
+  labName?: string;
+  patientName: string;
+  phone: string;
+  email?: string;
+  address: string;
+  city: string;
+  pinCode: string;
+  serviceLocation?: string;
+  collectionDate: string;
+  timeSlot: string;
+  testCodes: string[];
+  testNames?: string[];
+  estimatedTotal: number;
+  specialRemarks?: string;
+  status: HomeBookingStatus;
+  assignedPhlebotomist?: string;
+  bookingTimestamp: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 

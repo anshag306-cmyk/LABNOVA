@@ -173,7 +173,7 @@ export const LabNovaAuthView: React.FC<LabNovaAuthViewProps> = ({ onBackToHome }
         )}
         <span className="text-xs font-mono text-cyan-400/80 flex items-center gap-1.5 ml-auto">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Restricted Clinical Staff Portal</span>
+          <span>Secure Clinical Authentication Portal</span>
         </span>
       </div>
 
