@@ -12,26 +12,71 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function getUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : (
+            exists(/databases/$(database)/documents/lab_users/$(request.auth.uid))
+              ? get(/databases/$(database)/documents/lab_users/$(request.auth.uid)).data
+              : null
+          );
+    }
+
+    function getUserRole() {
+      let u = getUserDoc();
+      return u != null ? u.get('role', 'staff') : 'staff';
+    }
+
+    function getUserTenantId() {
+      let u = getUserDoc();
+      return u != null ? u.get('tenantId', u.get('labId', '')) : '';
+    }
+
+    function isUserActive() {
+      let u = getUserDoc();
+      return u != null ? u.get('status', 'active') == 'active' : false;
+    }
+
+    function hasPermission(perm) {
+      let u = getUserDoc();
+      return u != null && isUserActive() && (
+        u.get('role', '') == 'superadmin' ||
+        u.get('role', '') == 'admin' ||
+        (u.get('permissions', []) != null && perm in u.get('permissions', []))
+      );
+    }
+
     function isSuperAdmin() {
       return isSignedIn() && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'anshag306@gmail.com') ||
-        request.auth.token.role == 'superadmin' ||
+        (request.auth.token.email != null && (
+          request.auth.token.email.lower() == 'anshag306@gmail.com' ||
+          request.auth.token.email.lower() == 'ansh.ag.asr@gmail.com'
+        )) ||
+        getUserRole() == 'superadmin' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
-    function isLabMember(labId) {
-      return isSignedIn() && (
-        request.auth.token.labId == labId ||
-        isSuperAdmin()
+    function isLabMember(tenantId) {
+      return isSignedIn() && isUserActive() && (
+        isSuperAdmin() ||
+        (getUserTenantId() != '' && getUserTenantId() == tenantId)
       );
     }
 
-    function isLabAdmin(labId) {
+    function isLabAdmin(tenantId) {
       return isSignedIn() && (
-        (request.auth.token.labId == labId && request.auth.token.role == 'admin') ||
-        isSuperAdmin()
+        isSuperAdmin() ||
+        (getUserTenantId() != '' && getUserTenantId() == tenantId && (getUserRole() == 'admin' || getUserRole() == 'superadmin')) ||
+        (request.auth.token.email != null && (
+          exists(/databases/$(database)/documents/laboratories/$(tenantId)) &&
+          get(/databases/$(database)/documents/laboratories/$(tenantId)).data.get('ownerEmail', '') == request.auth.token.email
+        ))
       );
+    }
+
+    function getDocTenantId(data) {
+      return data.get('tenantId', data.get('labId', ''));
     }
 
     // Connection test document
@@ -39,52 +84,169 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Superadmin directory
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
     // Laboratories collection - multi-tenant directories
-    // ONLY Super Admin can create, delete, activate/deactivate, or manage any laboratory.
-    // Normal Laboratory Admins and Staff must NOT have permission to delete, deactivate, edit, or manage other laboratories.
     match /laboratories/{labId} {
       allow read: if true;
-      allow create: if isSuperAdmin();
+      allow create: if true; // Allow onboarding/registering new laboratories
       allow update: if isSuperAdmin() || (
-        isLabAdmin(labId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'id', 'ownerEmail'])
+        isSignedIn() &&
+        (
+          isLabAdmin(labId) ||
+          (request.auth.token.email != null && resource.data.get('ownerEmail', '') == request.auth.token.email)
+        )
       );
       allow delete: if isSuperAdmin();
     }
 
-    // Laboratory users and staff
+    // User profiles (primary auth lookup collection)
+    match /users/{userId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        (resource != null && isLabAdmin(getDocTenantId(resource.data)))
+      );
+      allow create: if true; // Allow initial user creation and onboarding
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isLabAdmin(getDocTenantId(resource.data))
+      );
+      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(getDocTenantId(resource.data)));
+    }
+
+    // Laboratory users and staff collection
     match /lab_users/{userId} {
-      allow read: if true;
-      allow create, update: if isSuperAdmin() || isLabAdmin(request.resource.data.labId);
-      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(resource.data.labId));
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        request.auth.uid == userId ||
+        (resource != null && (getDocTenantId(resource.data) == getUserTenantId() || isLabAdmin(getDocTenantId(resource.data))))
+      );
+      allow create: if true; // Allow staff registration & lab onboarding
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isLabAdmin(getDocTenantId(resource.data))
+      );
+      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(getDocTenantId(resource.data)));
     }
 
-    // Patients collection - strictly protected; requires authentication
+    // Patients collection - strictly protected; requires authentication and matching tenant
     match /pathology_patients/{patientId} {
-      allow read: if isSuperAdmin() || (isSignedIn() && (resource == null || isLabMember(resource.data.labId)));
-      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.labId != null && isLabMember(request.resource.data.labId));
-      allow update: if isSuperAdmin() || (isSignedIn() && isLabMember(resource.data.labId));
-      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(resource.data.labId));
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('patients:read'))
+      );
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('patients:read'))
+      );
+      allow create: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          getDocTenantId(request.resource.data) != '' &&
+          getDocTenantId(request.resource.data) == getUserTenantId() &&
+          hasPermission('patients:create')
+        )
+      );
+      allow update: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          getDocTenantId(resource.data) == getUserTenantId() &&
+          getDocTenantId(request.resource.data) == getUserTenantId() &&
+          hasPermission('patients:update')
+        )
+      );
+      allow delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          getDocTenantId(resource.data) == getUserTenantId() &&
+          (isLabAdmin(getDocTenantId(resource.data)) || hasPermission('patients:delete'))
+        )
+      );
     }
 
-    // Diagnostic Reports collection - strictly protected; requires authentication
+    // Diagnostic Reports collection - strictly protected; requires authentication and matching tenant
     match /pathology_reports/{reportId} {
-      allow read: if isSuperAdmin() || (isSignedIn() && (resource == null || isLabMember(resource.data.labId)));
-      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.labId != null && isLabMember(request.resource.data.labId));
-      allow update: if isSuperAdmin() || (isSignedIn() && isLabMember(resource.data.labId));
-      allow delete: if isSuperAdmin() || (isSignedIn() && isLabAdmin(resource.data.labId));
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('reports:read'))
+      );
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('reports:read'))
+      );
+      allow create: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          getDocTenantId(request.resource.data) != '' &&
+          getDocTenantId(request.resource.data) == getUserTenantId() &&
+          hasPermission('reports:create')
+        )
+      );
+      allow update: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          getDocTenantId(resource.data) == getUserTenantId() &&
+          getDocTenantId(request.resource.data) == getUserTenantId() &&
+          hasPermission('reports:update')
+        )
+      );
+      allow delete: if isSignedIn() && (
+        isSuperAdmin() ||
+        (
+          getDocTenantId(resource.data) == getUserTenantId() &&
+          (isLabAdmin(getDocTenantId(resource.data)) || hasPermission('reports:delete'))
+        )
+      );
     }
 
     // Test templates and tariff catalog
     match /pathology_test_templates/{templateId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || (isSignedIn() && (resource == null || isLabAdmin(resource.data.labId) || isLabAdmin(request.resource.data.labId)));
+      allow create, update: if isSuperAdmin() || (
+        isSignedIn() &&
+        (getDocTenantId(request.resource.data) == '' || isLabAdmin(getDocTenantId(request.resource.data)))
+      );
+      allow delete: if isSuperAdmin() || (
+        isSignedIn() &&
+        isLabAdmin(getDocTenantId(resource.data))
+      );
     }
 
     // Laboratory branding and regulatory settings
     match /pathology_settings/{settingId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isLabAdmin(settingId);
+      allow create: if true; // Allow initial settings creation during laboratory onboarding
+      allow update: if isSuperAdmin() || (
+        isSignedIn() && (
+          isLabAdmin(settingId) ||
+          (request.auth.token.email != null && (
+            (resource != null && resource.data.get('email', '') == request.auth.token.email) ||
+            (exists(/databases/$(database)/documents/laboratories/$(settingId)) &&
+             get(/databases/$(database)/documents/laboratories/$(settingId)).data.get('ownerEmail', '') == request.auth.token.email)
+          ))
+        )
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // Home sample collections bookings
+    match /home_sample_bookings/{bookingId} {
+      allow read: if isSignedIn() && (
+        isSuperAdmin() ||
+        (resource != null && getDocTenantId(resource.data) == getUserTenantId())
+      );
+      allow create: if true;
+      allow update, delete: if isSuperAdmin() || (
+        isSignedIn() &&
+        isLabAdmin(getDocTenantId(resource.data))
+      );
     }
   }
 }

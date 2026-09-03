@@ -206,21 +206,60 @@ export type PatientGender = 'Male' | 'Female' | 'Other';
 
 export type UserRole = 'admin' | 'staff' | 'superadmin';
 
+export const DEFAULT_ADMIN_PERMISSIONS: string[] = [
+  '*',
+  'patients:read',
+  'patients:create',
+  'patients:update',
+  'patients:delete',
+  'reports:read',
+  'reports:create',
+  'reports:update',
+  'reports:delete',
+  'reports:verify',
+  'settings:read',
+  'settings:update',
+  'letterhead:update',
+  'staff:read',
+  'staff:create',
+  'staff:update',
+  'staff:delete',
+  'templates:read',
+  'templates:write',
+  'billing:manage',
+];
+
+export const DEFAULT_STAFF_PERMISSIONS: string[] = [
+  'patients:read',
+  'patients:create',
+  'patients:update',
+  'reports:read',
+  'reports:create',
+  'reports:update',
+  'settings:read',
+  'templates:read',
+];
+
 export interface LabUser {
   id: string; // Auth UID or doc ID
+  uid?: string;
   email: string;
   displayName: string;
   name?: string;
   role: UserRole;
-  labId: string;
+  labId: string; // Tenant identifier
+  tenantId?: string; // Standardized tenant identifier (never null in runtime)
+  permissions?: string[]; // Role and operational permissions
   department?: string;
   phone?: string;
   status: 'active' | 'inactive';
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Laboratory {
   id: string; // Unique tenant identifier, e.g. 'lab-nova-main'
+  tenantId?: string; // Standardized tenant identifier
   name: string;
   tagline: string;
   code: string; // Short code, e.g. 'LNV', 'APX'
@@ -251,6 +290,7 @@ export interface Laboratory {
 export interface PathologyPatient {
   id: string; // Firestore document ID
   labId?: string; // Tenant identifier
+  tenantId?: string; // Standardized tenant identifier
   uhid: string; // Unique Healthcare ID, e.g. UHID-2026-0142
   fullName: string;
   age: number;
@@ -315,6 +355,7 @@ export interface LetterheadTemplate {
 
 export interface LabSettings {
   labId?: string; // Tenant identifier
+  tenantId?: string; // Standardized tenant identifier
   labName: string;
   tagline: string;
   logoUrl?: string;
@@ -418,6 +459,7 @@ export interface ReportBilling {
 export interface PathologyReport {
   id: string; // Firestore document ID
   labId?: string; // Tenant identifier
+  tenantId?: string; // Standardized tenant identifier
   reportId: string; // e.g. RPT-2026-0921
   patientId: string;
   patientUHID: string;

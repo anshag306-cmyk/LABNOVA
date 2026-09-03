@@ -26,6 +26,9 @@ import {
   Laboratory,
   LabUser,
   HomeSampleBooking,
+  UserRole,
+  DEFAULT_ADMIN_PERMISSIONS,
+  DEFAULT_STAFF_PERMISSIONS,
 } from '../types';
 import {
   DEFAULT_TEST_TEMPLATES,
@@ -57,6 +60,7 @@ export const TEMPLATES_COLLECTION = 'pathology_test_templates';
 export const SETTINGS_COLLECTION = 'pathology_settings';
 export const LABS_COLLECTION = 'laboratories';
 export const LAB_USERS_COLLECTION = 'lab_users';
+export const USERS_COLLECTION = 'users';
 export const HOME_BOOKINGS_COLLECTION = 'home_sample_bookings';
 
 // In-memory fallback / cache in case of initial hydration or offline preview
@@ -322,6 +326,253 @@ export async function seedInitialPathologyDataIfNeeded(_labId?: string): Promise
   }
 }
 
+export { DEFAULT_ADMIN_PERMISSIONS, DEFAULT_STAFF_PERMISSIONS };
+
+export const SUPERADMIN_EMAILS = [
+  'anshag306@gmail.com',
+  'ansh.ag.asr@gmail.com',
+];
+
+export function isOwnerEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return SUPERADMIN_EMAILS.includes(clean);
+}
+
+/**
+ * Resolves or initializes a complete, non-null tenant profile for the authenticated Firebase user.
+ * Guarantees tenantId is never null, role and permissions are populated, and the document is synced to users/{uid}.
+ */
+export async function loadOrCreateUserProfile(
+  fbUser: {
+    uid?: string;
+    id?: string;
+    email?: string | null;
+    displayName?: string | null;
+    tenantId?: string | null;
+  },
+  defaultPreferredLabId?: string,
+  overrides?: Partial<LabUser>
+): Promise<LabUser> {
+  const effectiveUid = fbUser.uid || fbUser.id || `usr-${Date.now()}`;
+  const email = (overrides?.email || fbUser.email || '').trim().toLowerCase();
+  const isOwner = isOwnerEmail(email);
+
+  // 1. Check users/{uid}
+  try {
+    const userDocRef = doc(firestoreDb, USERS_COLLECTION, effectiveUid);
+    const userDocSnap = await getDocFromServer(userDocRef);
+    if (userDocSnap.exists()) {
+      const data = userDocSnap.data();
+      const resolvedTenantId = overrides?.tenantId || overrides?.labId || data.tenantId || data.labId || defaultPreferredLabId || DEFAULT_LAB_ID;
+      const role: UserRole = isOwner ? 'superadmin' : (overrides?.role || (data.role as UserRole) || 'staff');
+      const permissions: string[] = isOwner
+        ? ['*']
+        : (overrides?.permissions || data.permissions || (role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_STAFF_PERMISSIONS));
+
+      const profile: LabUser = {
+        id: effectiveUid,
+        uid: effectiveUid,
+        email: email || data.email,
+        displayName: overrides?.displayName || fbUser.displayName || data.displayName || data.name || (isOwner ? 'Ansh Agrawal' : 'Staff Member'),
+        role,
+        labId: resolvedTenantId,
+        tenantId: resolvedTenantId,
+        permissions,
+        department: overrides?.department || data.department || (isOwner ? 'Executive Administration' : 'Diagnostics & Clinical Operations'),
+        phone: overrides?.phone || data.phone || '',
+        status: data.status || 'active',
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Ensure tenantId and permissions are saved
+      await setDoc(userDocRef, sanitizeForFirestore(profile), { merge: true }).catch(() => {});
+      await setDoc(doc(firestoreDb, LAB_USERS_COLLECTION, effectiveUid), sanitizeForFirestore(profile), { merge: true }).catch(() => {});
+      return profile;
+    }
+  } catch (err) {
+    console.warn('Notice reading users/{uid}:', err);
+  }
+
+  // 2. Check lab_users/{uid}
+  try {
+    const labUserDocRef = doc(firestoreDb, LAB_USERS_COLLECTION, effectiveUid);
+    const labUserSnap = await getDocFromServer(labUserDocRef);
+    if (labUserSnap.exists()) {
+      const data = labUserSnap.data();
+      const resolvedTenantId = overrides?.tenantId || overrides?.labId || data.tenantId || data.labId || defaultPreferredLabId || DEFAULT_LAB_ID;
+      const role: UserRole = isOwner ? 'superadmin' : (overrides?.role || (data.role as UserRole) || 'staff');
+      const permissions: string[] = isOwner
+        ? ['*']
+        : (overrides?.permissions || data.permissions || (role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_STAFF_PERMISSIONS));
+
+      const profile: LabUser = {
+        id: effectiveUid,
+        uid: effectiveUid,
+        email: email || data.email,
+        displayName: overrides?.displayName || fbUser.displayName || data.displayName || data.name || (isOwner ? 'Ansh Agrawal' : 'Staff Member'),
+        role,
+        labId: resolvedTenantId,
+        tenantId: resolvedTenantId,
+        permissions,
+        department: overrides?.department || data.department || 'Diagnostics & Clinical Operations',
+        phone: overrides?.phone || data.phone || '',
+        status: data.status || 'active',
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(doc(firestoreDb, USERS_COLLECTION, effectiveUid), sanitizeForFirestore(profile), { merge: true }).catch(() => {});
+      return profile;
+    }
+  } catch (err) {
+    console.warn('Notice reading lab_users/{uid}:', err);
+  }
+
+  // 3. Query known seed staff in code or Firestore by email
+  const seedMatched = INITIAL_LAB_USERS.find(
+    (u) => u.email.toLowerCase() === email
+  );
+
+  const resolvedTenantId = overrides?.tenantId || overrides?.labId || seedMatched?.labId || defaultPreferredLabId || DEFAULT_LAB_ID;
+  const role: UserRole = isOwner ? 'superadmin' : (overrides?.role || seedMatched?.role || 'staff');
+  const permissions: string[] = isOwner
+    ? ['*']
+    : (overrides?.permissions || (role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_STAFF_PERMISSIONS));
+
+  const newProfile: LabUser = {
+    id: effectiveUid,
+    uid: effectiveUid,
+    email: email || (fbUser.email || 'user@labnova.com'),
+    displayName: overrides?.displayName || fbUser.displayName || seedMatched?.displayName || (isOwner ? 'Ansh Agrawal' : 'Authorized User'),
+    role,
+    labId: resolvedTenantId,
+    tenantId: resolvedTenantId,
+    permissions,
+    department: overrides?.department || seedMatched?.department || (isOwner ? 'Executive Administration' : 'Diagnostics Bench'),
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    await setDoc(doc(firestoreDb, USERS_COLLECTION, effectiveUid), sanitizeForFirestore(newProfile), { merge: true });
+    await setDoc(doc(firestoreDb, LAB_USERS_COLLECTION, effectiveUid), sanitizeForFirestore(newProfile), { merge: true });
+  } catch (err) {
+    console.warn('Notice saving new user profile:', err);
+  }
+
+  return newProfile;
+}
+
+/**
+ * Migration & Backfill routine:
+ * Scans lab_users, pathology_patients, pathology_reports, and settings.
+ * Ensures that any document missing `tenantId` is safely updated with a valid tenantId.
+ */
+export async function migrateAndBackfillTenants(): Promise<{
+  usersUpdated: number;
+  patientsUpdated: number;
+  reportsUpdated: number;
+  settingsUpdated: number;
+}> {
+  const stats = {
+    usersUpdated: 0,
+    patientsUpdated: 0,
+    reportsUpdated: 0,
+    settingsUpdated: 0,
+  };
+
+  try {
+    // 1. Backfill lab_users and mirror to users/{uid}
+    const staffSnap = await getDocs(collection(firestoreDb, LAB_USERS_COLLECTION));
+    for (const d of staffSnap.docs) {
+      const data = d.data();
+      const resolvedTenantId = data.tenantId || data.labId || DEFAULT_LAB_ID;
+      const role = data.role || 'staff';
+      const permissions = data.permissions || (role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_STAFF_PERMISSIONS);
+
+      if (!data.tenantId || !data.permissions) {
+        await updateDoc(doc(firestoreDb, LAB_USERS_COLLECTION, d.id), {
+          tenantId: resolvedTenantId,
+          labId: resolvedTenantId,
+          permissions,
+          status: data.status || 'active',
+        }).catch(() => {});
+        stats.usersUpdated++;
+      }
+
+      // Mirror to users collection so Firestore Security Rules can find it
+      await setDoc(
+        doc(firestoreDb, USERS_COLLECTION, d.id),
+        sanitizeForFirestore({
+          id: d.id,
+          uid: d.id,
+          email: data.email,
+          displayName: data.displayName || data.name || 'Staff Member',
+          role,
+          labId: resolvedTenantId,
+          tenantId: resolvedTenantId,
+          permissions,
+          department: data.department || 'Diagnostics',
+          status: data.status || 'active',
+          updatedAt: new Date().toISOString(),
+        }),
+        { merge: true }
+      ).catch(() => {});
+    }
+
+    // 2. Backfill settings
+    const settingsSnap = await getDocs(collection(firestoreDb, SETTINGS_COLLECTION));
+    for (const d of settingsSnap.docs) {
+      const data = d.data();
+      const targetId = data.labId || d.id;
+      if (!data.tenantId || data.tenantId !== targetId) {
+        await updateDoc(doc(firestoreDb, SETTINGS_COLLECTION, d.id), {
+          tenantId: targetId,
+          labId: targetId,
+        }).catch(() => {});
+        stats.settingsUpdated++;
+      }
+    }
+
+    // 3. Backfill patients
+    const patientsSnap = await getDocs(collection(firestoreDb, PATIENTS_COLLECTION));
+    for (const d of patientsSnap.docs) {
+      const data = d.data();
+      const targetId = data.labId || data.tenantId || DEFAULT_LAB_ID;
+      if (!data.tenantId || !data.labId) {
+        await updateDoc(doc(firestoreDb, PATIENTS_COLLECTION, d.id), {
+          tenantId: targetId,
+          labId: targetId,
+        }).catch(() => {});
+        stats.patientsUpdated++;
+      }
+    }
+
+    // 4. Backfill reports
+    const reportsSnap = await getDocs(collection(firestoreDb, REPORTS_COLLECTION));
+    for (const d of reportsSnap.docs) {
+      const data = d.data();
+      const targetId = data.labId || data.tenantId || DEFAULT_LAB_ID;
+      if (!data.tenantId || !data.labId) {
+        await updateDoc(doc(firestoreDb, REPORTS_COLLECTION, d.id), {
+          tenantId: targetId,
+          labId: targetId,
+        }).catch(() => {});
+        stats.reportsUpdated++;
+      }
+    }
+
+    console.log('✅ Multi-tenant migration and backfill completed successfully:', stats);
+  } catch (error) {
+    console.warn('Notice during migrateAndBackfillTenants:', error);
+  }
+
+  return stats;
+}
+
 // -------------------------------------------------------------
 // MULTI-TENANT PATIENT OPERATIONS
 // -------------------------------------------------------------
@@ -329,7 +580,8 @@ export async function seedInitialPathologyDataIfNeeded(_labId?: string): Promise
 export function subscribeToPatients(
   labIdOrCallback: string | ((patients: PathologyPatient[]) => void),
   maybeCallback?: (patients: PathologyPatient[]) => void,
-  onError?: (err: Error) => void
+  onError?: (err: Error) => void,
+  isSuperAdmin = false
 ) {
   const targetLabId =
     typeof labIdOrCallback === 'string' ? labIdOrCallback : DEFAULT_LAB_ID;
@@ -337,10 +589,10 @@ export function subscribeToPatients(
     typeof labIdOrCallback === 'function' ? labIdOrCallback : maybeCallback || (() => {});
 
   try {
-    const q = query(
-      collection(firestoreDb, PATIENTS_COLLECTION),
-      orderBy('registeredAt', 'desc')
-    );
+    const colRef = collection(firestoreDb, PATIENTS_COLLECTION);
+    const q = isSuperAdmin && !targetLabId
+      ? query(colRef)
+      : query(colRef, where('labId', '==', targetLabId));
 
     const unsubscribe = onSnapshot(
       q,
@@ -355,29 +607,22 @@ export function subscribeToPatients(
 
         const allPatients: PathologyPatient[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data() as PathologyPatient;
-          // Non-destructive auto-tagging
-          if (!data.labId && targetLabId === DEFAULT_LAB_ID) {
-            updateDoc(doc(firestoreDb, PATIENTS_COLLECTION, docSnap.id), {
-              labId: DEFAULT_LAB_ID,
-            }).catch(() => {});
-          }
           return {
             ...data,
             id: docSnap.id,
-            labId: data.labId || DEFAULT_LAB_ID,
+            labId: data.labId || data.tenantId || targetLabId,
+            tenantId: data.tenantId || data.labId || targetLabId,
           };
         });
 
-        // Strict multi-tenant filtering: Only returns patients belonging to this lab
-        const scopedPatients = allPatients.filter((p) => {
-          if (targetLabId === DEFAULT_LAB_ID) {
-            return p.labId === DEFAULT_LAB_ID || !p.labId;
-          }
-          return p.labId === targetLabId;
+        allPatients.sort((a, b) => {
+          const tA = new Date(a.registeredAt || 0).getTime();
+          const tB = new Date(b.registeredAt || 0).getTime();
+          return tB - tA;
         });
 
-        cachedPatientsMap[targetLabId] = scopedPatients;
-        callback(scopedPatients);
+        cachedPatientsMap[targetLabId] = allPatients;
+        callback(allPatients);
       },
       (error) => {
         console.warn('Patients snapshot subscription fallback:', error);
@@ -401,10 +646,12 @@ export async function addPatientToFirestore(
   patientData: Omit<PathologyPatient, 'id'>,
   labId?: string
 ): Promise<PathologyPatient> {
-  const finalLabId = labId || patientData.labId || DEFAULT_LAB_ID;
+  const finalLabId = (labId || patientData.labId || patientData.tenantId || '').trim() || DEFAULT_LAB_ID;
   const cleanData = sanitizeForFirestore({
     ...patientData,
     labId: finalLabId,
+    tenantId: finalLabId,
+    registeredAt: patientData.registeredAt || new Date().toISOString(),
   });
 
   try {
@@ -415,6 +662,8 @@ export async function addPatientToFirestore(
     const newPatient: PathologyPatient = {
       ...cleanData,
       id: docRef.id,
+      labId: finalLabId,
+      tenantId: finalLabId,
     };
     const currentList = cachedPatientsMap[finalLabId] || [];
     cachedPatientsMap[finalLabId] = [
@@ -471,7 +720,8 @@ export async function deletePatientFromFirestore(id: string, _labId?: string): P
 export function subscribeToReports(
   labIdOrCallback: string | ((reports: PathologyReport[]) => void),
   maybeCallback?: (reports: PathologyReport[]) => void,
-  onError?: (err: Error) => void
+  onError?: (err: Error) => void,
+  isSuperAdmin = false
 ) {
   const targetLabId =
     typeof labIdOrCallback === 'string' ? labIdOrCallback : DEFAULT_LAB_ID;
@@ -479,10 +729,10 @@ export function subscribeToReports(
     typeof labIdOrCallback === 'function' ? labIdOrCallback : maybeCallback || (() => {});
 
   try {
-    const q = query(
-      collection(firestoreDb, REPORTS_COLLECTION),
-      orderBy('createdAt', 'desc')
-    );
+    const colRef = collection(firestoreDb, REPORTS_COLLECTION);
+    const q = isSuperAdmin && !targetLabId
+      ? query(colRef)
+      : query(colRef, where('labId', '==', targetLabId));
 
     const unsubscribe = onSnapshot(
       q,
@@ -497,31 +747,25 @@ export function subscribeToReports(
 
         const allReports: PathologyReport[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data() as PathologyReport;
-          if (!data.labId && targetLabId === DEFAULT_LAB_ID) {
-            updateDoc(doc(firestoreDb, REPORTS_COLLECTION, docSnap.id), {
-              labId: DEFAULT_LAB_ID,
-            }).catch(() => {});
-          }
           return {
             ...data,
             id: docSnap.id,
-            labId: data.labId || DEFAULT_LAB_ID,
+            labId: data.labId || data.tenantId || targetLabId,
+            tenantId: data.tenantId || data.labId || targetLabId,
             results: data.results || [],
             testCodes: data.testCodes || [],
             testNames: data.testNames || [],
           };
         });
 
-        // Strict multi-tenant filtering: Only returns reports belonging to this lab
-        const scopedReports = allReports.filter((r) => {
-          if (targetLabId === DEFAULT_LAB_ID) {
-            return r.labId === DEFAULT_LAB_ID || !r.labId;
-          }
-          return r.labId === targetLabId;
+        allReports.sort((a, b) => {
+          const tA = new Date(a.createdAt || 0).getTime();
+          const tB = new Date(b.createdAt || 0).getTime();
+          return tB - tA;
         });
 
-        cachedReportsMap[targetLabId] = scopedReports;
-        callback(scopedReports);
+        cachedReportsMap[targetLabId] = allReports;
+        callback(allReports);
       },
       (error) => {
         console.warn('Reports snapshot subscription fallback:', error);
@@ -545,10 +789,12 @@ export async function addReportToFirestore(
   reportData: Omit<PathologyReport, 'id'>,
   labId?: string
 ): Promise<PathologyReport> {
-  const finalLabId = labId || reportData.labId || DEFAULT_LAB_ID;
+  const finalLabId = (labId || reportData.labId || reportData.tenantId || '').trim() || DEFAULT_LAB_ID;
   const cleanData = sanitizeForFirestore({
     ...reportData,
     labId: finalLabId,
+    tenantId: finalLabId,
+    createdAt: reportData.createdAt || new Date().toISOString(),
   });
 
   try {
@@ -559,6 +805,8 @@ export async function addReportToFirestore(
     const newReport: PathologyReport = {
       ...cleanData,
       id: docRef.id,
+      labId: finalLabId,
+      tenantId: finalLabId,
     };
     const currentList = cachedReportsMap[finalLabId] || [];
     cachedReportsMap[finalLabId] = [
@@ -834,7 +1082,7 @@ export async function saveLabSettingsToFirestore(
   settings: LabSettings,
   labId?: string
 ): Promise<void> {
-  const targetLabId = labId || settings.labId || DEFAULT_LAB_ID;
+  const targetLabId = (labId || settings.labId || settings.tenantId || '').trim() || DEFAULT_LAB_ID;
 
   // Optimize logoUrl if present and large (> 80KB)
   let optimizedLogo = settings.logoUrl || '';
@@ -850,6 +1098,7 @@ export async function saveLabSettingsToFirestore(
     ...settings,
     logoUrl: optimizedLogo,
     labId: targetLabId,
+    tenantId: targetLabId,
   });
 
   try {
@@ -867,6 +1116,7 @@ export async function saveLabSettingsToFirestore(
     await setDoc(
       labRef,
       sanitizeForFirestore({
+        tenantId: targetLabId,
         name: settings.labName,
         tagline: settings.tagline,
         logoUrl: optimizedLogo,
@@ -889,7 +1139,7 @@ export async function saveLabSettingsToFirestore(
       { merge: true }
     ).catch(() => {});
 
-    cachedSettings = { ...cachedSettings, ...cleanSettings };
+    cachedSettings = { ...cleanSettings, labId: targetLabId, tenantId: targetLabId };
   } catch (error) {
     console.error('Error saving lab settings to Firestore:', error);
     handleFirestoreError(error, OperationType.UPDATE, `${SETTINGS_COLLECTION}/${targetLabId}`);
@@ -954,6 +1204,7 @@ export async function createNewLaboratoryInFirestore(
 
   const cleanLab = sanitizeForFirestore({
     ...labData,
+    tenantId: labData.id,
     logoUrl: optimizedLogo,
     createdAt: new Date().toISOString(),
     status: labData.status || 'active',
@@ -967,6 +1218,7 @@ export async function createNewLaboratoryInFirestore(
     const settingsDocRef = doc(firestoreDb, SETTINGS_COLLECTION, labData.id);
     const initialSettings: LabSettings = {
       labId: labData.id,
+      tenantId: labData.id,
       labName: labData.name,
       tagline: labData.tagline,
       logoUrl: optimizedLogo,
@@ -990,21 +1242,25 @@ export async function createNewLaboratoryInFirestore(
     };
     await setDoc(settingsDocRef, sanitizeForFirestore(initialSettings));
 
-    // Register creator as Admin user in lab_users
+    // Register creator as Admin user in lab_users and users
     if (adminUser && adminUser.email) {
-      const userId = adminUser.id || `usr-${Date.now()}`;
+      const userId = adminUser.id || (auth.currentUser ? auth.currentUser.uid : `usr-${Date.now()}`);
       const newUser: LabUser = {
         id: userId,
+        uid: userId,
         email: adminUser.email,
         displayName: adminUser.displayName || 'Lab Administrator',
         role: 'admin',
         labId: labData.id,
+        tenantId: labData.id,
+        permissions: DEFAULT_ADMIN_PERMISSIONS,
         department: adminUser.department || 'Administration',
         phone: adminUser.phone || labData.phone,
         status: 'active',
         createdAt: new Date().toISOString(),
       };
-      await setDoc(doc(firestoreDb, LAB_USERS_COLLECTION, userId), sanitizeForFirestore(newUser));
+      await setDoc(doc(firestoreDb, LAB_USERS_COLLECTION, userId), sanitizeForFirestore(newUser), { merge: true }).catch(() => {});
+      await setDoc(doc(firestoreDb, USERS_COLLECTION, userId), sanitizeForFirestore(newUser), { merge: true }).catch(() => {});
     }
 
     cachedLabs = [...cachedLabs.filter((l) => l.id !== labData.id), cleanLab];
@@ -1100,12 +1356,17 @@ export function subscribeToAllUsers(
 
 export function subscribeToLabStaff(
   labId: string,
-  callback: (staff: LabUser[]) => void
+  callback: (staff: LabUser[]) => void,
+  isSuperAdmin = false
 ) {
   try {
     const colRef = collection(firestoreDb, LAB_USERS_COLLECTION);
+    const q = isSuperAdmin && !labId
+      ? query(colRef)
+      : query(colRef, where('labId', '==', labId));
+
     const unsubscribe = onSnapshot(
-      colRef,
+      q,
       (snapshot) => {
         if (snapshot.empty) {
           seedInitialPathologyDataIfNeeded();
@@ -1119,16 +1380,13 @@ export function subscribeToLabStaff(
           return {
             ...data,
             id: docSnap.id,
+            labId: data.labId || data.tenantId || labId,
+            tenantId: data.tenantId || data.labId || labId,
           };
         });
 
-        // Filter staff strictly by laboratory tenant ID (superadmin is visible or scoped)
-        const scopedStaff = allUsers.filter(
-          (u) => u.labId === labId || (u.role === 'superadmin' && labId === DEFAULT_LAB_ID)
-        );
-
-        cachedStaffMap[labId] = scopedStaff;
-        callback(scopedStaff);
+        cachedStaffMap[labId] = allUsers;
+        callback(allUsers);
       },
       (error) => {
         console.warn('Staff snapshot fallback:', error);
@@ -1146,8 +1404,16 @@ export function subscribeToLabStaff(
 export async function addStaffMemberToFirestore(
   staffData: Omit<LabUser, 'id'>
 ): Promise<LabUser> {
+  const targetTenantId = (staffData.tenantId || staffData.labId || DEFAULT_LAB_ID).trim();
+  const permissions = staffData.permissions && staffData.permissions.length > 0
+    ? staffData.permissions
+    : (staffData.role === 'admin' ? DEFAULT_ADMIN_PERMISSIONS : DEFAULT_STAFF_PERMISSIONS);
+
   const cleanData = sanitizeForFirestore({
     ...staffData,
+    tenantId: targetTenantId,
+    labId: targetTenantId,
+    permissions,
     createdAt: new Date().toISOString(),
     status: staffData.status || 'active',
   });
@@ -1160,9 +1426,14 @@ export async function addStaffMemberToFirestore(
     const newStaff: LabUser = {
       ...cleanData,
       id: docRef.id,
+      tenantId: targetTenantId,
+      labId: targetTenantId,
     };
-    const current = cachedStaffMap[staffData.labId] || [];
-    cachedStaffMap[staffData.labId] = [newStaff, ...current];
+    // Mirror to users collection as well
+    await setDoc(doc(firestoreDb, USERS_COLLECTION, docRef.id), sanitizeForFirestore(newStaff), { merge: true }).catch(() => {});
+
+    const current = cachedStaffMap[targetTenantId] || [];
+    cachedStaffMap[targetTenantId] = [newStaff, ...current];
     return newStaff;
   } catch (error) {
     console.error('Error adding staff member:', error);
