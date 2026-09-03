@@ -10,6 +10,7 @@ import { LabSwitcherModal } from './components/Pathology/LabSwitcherModal';
 import { StaffManagementModal } from './components/Pathology/StaffManagementModal';
 import { PublicHomePage } from './components/Public/PublicHomePage';
 import { SuperAdminDashboard } from './components/SuperAdmin/SuperAdminDashboard';
+import { CreateLabOnboardingPage } from './components/Auth/CreateLabOnboardingPage';
 
 const MainLabContent: React.FC = () => {
   const {
@@ -21,6 +22,10 @@ const MainLabContent: React.FC = () => {
     user,
     isAuthenticated,
     isSuperAdmin,
+    needsLabRegistration,
+    registerNewLab,
+    logout,
+    isLoading,
     isLabSwitcherOpen,
     closeLabSwitcher,
     isStaffModalOpen,
@@ -52,6 +57,26 @@ const MainLabContent: React.FC = () => {
   // Case 1: Staff explicitly requests login view
   if (!isAuthenticated && viewMode === 'auth') {
     return <LabNovaAuthView onBackToHome={() => setViewMode('public')} />;
+  }
+
+  // Case 1.5: Authenticated regular user with no registered laboratory -> Dedicated First-Time Onboarding
+  if (isAuthenticated && !isSuperAdmin && (needsLabRegistration || !user?.tenantId)) {
+    return (
+      <CreateLabOnboardingPage
+        userEmail={user?.email || ''}
+        userName={user?.displayName || ''}
+        onLogout={logout}
+        isLoading={isLoading}
+        onSubmit={async (labData) => {
+          await registerNewLab(
+            labData,
+            labData.pathologistName || user?.displayName || 'Lab Director',
+            labData.email || user?.email || ''
+          );
+          setViewMode('dashboard');
+        }}
+      />
+    );
   }
 
   // Case 2: User is unauthenticated OR authenticated staff chooses to view public site

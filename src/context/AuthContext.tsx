@@ -33,6 +33,7 @@ interface AuthContextType {
   isStaff: boolean;
   isSuperAdmin: boolean;
   isAuthenticated: boolean;
+  needsLabRegistration: boolean;
   isLabSwitcherOpen: boolean;
   openLabSwitcher: () => void;
   closeLabSwitcher: () => void;
@@ -112,11 +113,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
       if (fbUser) {
         try {
-          const profile = await loadOrCreateUserProfile(fbUser, currentLabId);
+          const isOwner = isOwnerEmail(fbUser.email || '');
+          const profile = await loadOrCreateUserProfile(fbUser, isOwner ? currentLabId : undefined);
           setUser(profile);
           if (profile.tenantId) {
             setCurrentLabId(profile.tenantId);
             localStorage.setItem(LOCAL_STORAGE_LAB_KEY, profile.tenantId);
+          } else {
+            localStorage.removeItem(LOCAL_STORAGE_LAB_KEY);
           }
           localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
         } catch (e) {
@@ -160,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const email = fbUser.email || '';
       const isOwner = isOwnerEmail(email);
 
-      const profile = await loadOrCreateUserProfile(fbUser, currentLabId, {
+      const profile = await loadOrCreateUserProfile(fbUser, isOwner ? currentLabId : undefined, {
         displayName: fbUser.displayName || 'Authorized User',
         role: isOwner ? 'superadmin' : 'admin',
         department: isOwner ? 'Executive Administration' : 'Pathology & Diagnostics',
@@ -170,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profile.tenantId) {
         setCurrentLabId(profile.tenantId);
         localStorage.setItem(LOCAL_STORAGE_LAB_KEY, profile.tenantId);
+      } else {
+        localStorage.removeItem(LOCAL_STORAGE_LAB_KEY);
       }
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
     } catch (err: any) {
@@ -358,6 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const fullLab: Laboratory = {
         id: newLabId,
         name: labData.name || 'New Diagnostic Laboratory',
+        hospitalName: labData.hospitalName || '',
         tagline: labData.tagline || 'Advanced Clinical Pathology & Diagnostic Services',
         code: labData.code || 'NDL',
         logoUrl: labData.logoUrl || '',
@@ -379,6 +386,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         technologistQualification: labData.technologistQualification || 'B.Sc / M.Sc (MLT)',
         currency: labData.currency || '₹',
         headerColor: labData.headerColor || '#0284c7',
+        letterheadTemplateId: labData.letterheadTemplateId || 'classic_medical',
+        reportFooter: labData.reportFooter || '',
+        reportHeader: labData.reportHeader || '',
         createdAt: new Date().toISOString(),
         ownerEmail: adminEmail,
         status: 'active',
@@ -415,10 +425,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'admin',
         labId: created.id,
         tenantId: created.id,
+        isLabOwner: true,
+        needsLabRegistration: false,
         permissions: DEFAULT_ADMIN_PERMISSIONS,
         department: 'Laboratory Administration',
         status: 'active',
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
       setUser(adminUser);
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(adminUser));
@@ -449,6 +462,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isStaff = Boolean(user?.role === 'staff');
   const isSuperAdmin = Boolean(user?.role === 'superadmin');
   const isAuthenticated = Boolean(user);
+  const needsLabRegistration = Boolean(
+    user && user.role !== 'superadmin' && (!user.tenantId || user.needsLabRegistration)
+  );
 
   return (
     <AuthContext.Provider
@@ -462,6 +478,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isStaff,
         isSuperAdmin,
         isAuthenticated,
+        needsLabRegistration,
         isLabSwitcherOpen,
         openLabSwitcher,
         closeLabSwitcher,

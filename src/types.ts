@@ -248,7 +248,9 @@ export interface LabUser {
   name?: string;
   role: UserRole;
   labId: string; // Tenant identifier
-  tenantId?: string; // Standardized tenant identifier (never null in runtime)
+  tenantId?: string; // Standardized tenant identifier
+  isLabOwner?: boolean;
+  needsLabRegistration?: boolean; // Flag when user is signed in but has not registered a laboratory
   permissions?: string[]; // Role and operational permissions
   department?: string;
   phone?: string;
@@ -261,6 +263,7 @@ export interface Laboratory {
   id: string; // Unique tenant identifier, e.g. 'lab-nova-main'
   tenantId?: string; // Standardized tenant identifier
   name: string;
+  hospitalName?: string;
   tagline: string;
   code: string; // Short code, e.g. 'LNV', 'APX'
   logoUrl?: string;
@@ -282,7 +285,10 @@ export interface Laboratory {
   currency: string;
   headerColor: string;
   letterheadTemplateId?: LetterheadTemplateId | string;
+  reportFooter?: string;
+  reportHeader?: string;
   createdAt: string;
+  ownerUid?: string; // Authenticated Firebase user UID of the lab creator
   ownerEmail?: string;
   status: 'active' | 'pending' | 'suspended';
 }
@@ -357,6 +363,7 @@ export interface LabSettings {
   labId?: string; // Tenant identifier
   tenantId?: string; // Standardized tenant identifier
   labName: string;
+  hospitalName?: string;
   tagline: string;
   logoUrl?: string;
   accreditationText: string;
@@ -375,6 +382,8 @@ export interface LabSettings {
   currency: string;
   headerColor: string;
   letterheadTemplateId?: LetterheadTemplateId | string;
+  reportFooter?: string;
+  reportHeader?: string;
 }
 
 export interface ReportLayoutVisibilityConfig {
