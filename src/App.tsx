@@ -11,8 +11,23 @@ import { StaffManagementModal } from './components/Pathology/StaffManagementModa
 import { PublicHomePage } from './components/Public/PublicHomePage';
 import { SuperAdminDashboard } from './components/SuperAdmin/SuperAdminDashboard';
 import { CreateLabOnboardingPage } from './components/Auth/CreateLabOnboardingPage';
+import { MobileScanCaptureView } from './components/Pathology/MobileScanCaptureView';
+import { PatientReportingRecordView } from './components/Public/PatientReportingRecordView';
 
 const MainLabContent: React.FC = () => {
+  // Check special URL parameters for Mobile Scan QR and Patient Reporting Record QR
+  const [urlParams] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const search = new URLSearchParams(window.location.search);
+      return {
+        mobileScanSession: search.get('mobileScanSession'),
+        patientRecord: search.get('patientRecord'),
+        ref: search.get('ref'),
+      };
+    }
+    return { mobileScanSession: null, patientRecord: null, ref: null };
+  });
+
   const {
     activeTab,
     themeMode,
@@ -53,6 +68,24 @@ const MainLabContent: React.FC = () => {
       setViewMode((prev) => (prev === 'dashboard' || prev === 'superadmin' ? 'public' : prev));
     }
   }, [isAuthenticated, isSuperAdmin]);
+
+  // Case 0: Mobile Scan Camera Capture Page (Opened from QR Code)
+  if (urlParams.mobileScanSession) {
+    return <MobileScanCaptureView sessionId={urlParams.mobileScanSession} />;
+  }
+
+  // Case 0.5: Secure Patient-Level Online Reporting Record View (Opened from Report QR Code)
+  if (urlParams.patientRecord) {
+    return (
+      <PatientReportingRecordView
+        patientRecordToken={urlParams.patientRecord}
+        initialReportId={urlParams.ref || undefined}
+        onBack={() => {
+          window.location.href = window.location.pathname;
+        }}
+      />
+    );
+  }
 
   // Case 1: Staff explicitly requests login view
   if (!isAuthenticated && viewMode === 'auth') {

@@ -339,70 +339,126 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
                 </span>
               </h3>
 
-              {/* Table of Results */}
-              <div className="overflow-x-auto mt-2">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold bg-slate-50/50 dark:bg-slate-800/30">
-                      <th className="py-2.5 px-3">Investigation</th>
-                      <th className="py-2.5 px-3">Result</th>
-                      <th className="py-2.5 px-3">Flag</th>
-                      <th className="py-2.5 px-3">Unit</th>
-                      <th className="py-2.5 px-3">Biological Ref. Interval</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {(report.results || []).map((res, i) => (
-                      <tr key={i} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30">
-                        <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
-                          {res.name}
-                        </td>
-                        <td className="py-2 px-3 font-mono font-bold">
-                          <span
-                            className={
-                              res.status === 'critical'
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : res.status === 'high'
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : res.status === 'low'
-                                ? 'text-blue-600 dark:text-blue-400'
-                                : 'text-slate-900 dark:text-slate-100'
-                            }
-                          >
-                            {res.value}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3">
-                          {res.status === 'high' && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                              ▲ HIGH
-                            </span>
-                          )}
-                          {res.status === 'low' && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-                              ▼ LOW
-                            </span>
-                          )}
-                          {res.status === 'critical' && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">
-                              🚨 CRITICAL
-                            </span>
-                          )}
-                          {res.status === 'normal' && (
-                            <span className="text-slate-400 text-[11px]">Normal</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                          {res.unit || '-'}
-                        </td>
-                        <td className="py-2 px-3 text-[11px] text-slate-600 dark:text-slate-300">
-                          {res.refRangeText || '-'}
-                        </td>
+              {/* Table of Results (for standard clinical and routine parameters) */}
+              {(report.results || []).filter((r) => r.category !== 'Histopathology').length > 0 && (
+                <div className="overflow-x-auto mt-2">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold bg-slate-50/50 dark:bg-slate-800/30">
+                        <th className="py-2.5 px-3">Investigation</th>
+                        <th className="py-2.5 px-3">Result</th>
+                        <th className="py-2.5 px-3">Flag</th>
+                        <th className="py-2.5 px-3">Unit</th>
+                        <th className="py-2.5 px-3">Biological Ref. Interval</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {(report.results || [])
+                        .filter((r) => r.category !== 'Histopathology')
+                        .map((res, i) => (
+                          <tr key={i} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30">
+                            <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
+                              {res.name}
+                            </td>
+                            <td className="py-2 px-3 font-mono font-bold">
+                              <span
+                                className={
+                                  res.status === 'critical'
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : res.status === 'high'
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : res.status === 'low'
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-slate-900 dark:text-slate-100'
+                                }
+                              >
+                                {res.value}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3">
+                              {res.status === 'high' && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                  ▲ HIGH
+                                </span>
+                              )}
+                              {res.status === 'low' && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                                  ▼ LOW
+                                </span>
+                              )}
+                              {res.status === 'critical' && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white">
+                                  🚨 CRITICAL
+                                </span>
+                              )}
+                              {res.status === 'normal' && (
+                                <span className="text-slate-400 text-[11px]">Normal</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                              {res.unit || '-'}
+                            </td>
+                            <td className="py-2 px-3 text-[11px] text-slate-600 dark:text-slate-300">
+                              {res.refRangeText || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Dedicated Histopathology Examination Display */}
+              {(report.results || []).filter((r) => r.category === 'Histopathology').length > 0 && (
+                <div className="mt-4 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 pb-2">
+                    Surgical Pathology & Histopathological Examination
+                  </div>
+                  <div className="space-y-3">
+                    {(report.results || [])
+                      .filter((r) => r.category === 'Histopathology')
+                      .map((res, i) => {
+                        const isDiagnosis = res.name.toLowerCase().includes('diagnosis');
+                        return (
+                          <div
+                            key={i}
+                            className={`p-3 rounded-lg border ${
+                              isDiagnosis
+                                ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60'
+                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span
+                                className={`text-xs font-bold ${
+                                  isDiagnosis
+                                    ? 'text-rose-700 dark:text-rose-300 uppercase'
+                                    : 'text-slate-700 dark:text-slate-300 uppercase'
+                                }`}
+                              >
+                                ▶ {res.name}
+                              </span>
+                              {isDiagnosis && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200">
+                                  Definitive Diagnosis
+                                </span>
+                              )}
+                            </div>
+                            <p
+                              className={`text-xs whitespace-pre-wrap leading-relaxed ${
+                                isDiagnosis
+                                  ? 'font-bold text-rose-950 dark:text-rose-100'
+                                  : 'text-slate-800 dark:text-slate-200'
+                              }`}
+                            >
+                              {res.value || 'None recorded'}
+                            </p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Clinical Impression & Interpretation */}

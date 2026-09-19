@@ -1,4 +1,6 @@
 import { TestTemplate, PathologyPatient, PathologyReport, LabSettings } from '../types';
+import { ADDITIONAL_TEST_TEMPLATES } from './additionalTestTemplates';
+import { BATCH2_TEST_TEMPLATES } from './batch2TestTemplates';
 
 export const DEFAULT_LAB_SETTINGS: LabSettings = {
   labName: 'Lab Nova Pathology & Diagnostic Laboratory',
@@ -589,6 +591,777 @@ export const DEFAULT_TEST_TEMPLATES: TestTemplate[] = [
       { id: 'p-rh-factor', name: 'Rh (D) Factor', unit: '', refRangeText: 'Positive / Negative', method: 'Anti-D Human Monoclonal IgM/IgG' },
     ],
   },
+
+  // 27. Adenosine Deaminase (ADA) – Pleural Fluid
+  {
+    id: 'tmpl-ada-pl-27',
+    testCode: 'ADA-PL-27',
+    testName: 'Adenosine Deaminase (ADA) – Pleural Fluid',
+    category: 'Biochemistry',
+    sampleType: 'Pleural Fluid (Aspirated Thoracentesis Fluid in Sterile Heparin/Plain Tube 3 ml)',
+    sampleTubeColor: 'green',
+    price: 650,
+    tatHours: 4,
+    description: 'Quantitative photometric determination of Adenosine Deaminase enzyme activity in pleural effusion.',
+    specimenPrep: 'Collect pleural fluid by thoracentesis into sterile tube. Centrifuge promptly to remove cellular debris. Avoid gross hemolysis. Store refrigerated at 2-8°C if testing is delayed.',
+    clinicalSignificance: 'Differential diagnosis of pleural effusions. Levels > 40.0 U/L have high sensitivity (~90-95%) and specificity (~90%) for Tuberculous Pleurisy in lymphocytic exudates. Levels < 30.0 U/L make TB pleuritis unlikely. Also elevated in empyema, rheumatoid pleuritis, and lymphomas.',
+    parameters: [
+      { id: 'p-ada-pl', name: 'Adenosine Deaminase (ADA) Level', unit: 'U/L', refRangeMin: 0, refRangeMax: 40.0, refRangeText: '< 30.0 (Unlikely TB) | 30.0 - 40.0 (Indeterminate) | > 40.0 (Highly suggestive of TB)', method: 'Enzymatic Photometric (Giusti-Galanti / Guanosine Deaminase)', criticalHigh: 80.0 },
+      { id: 'p-ada-pl-interp', name: 'Clinical Interpretation', unit: '', refRangeText: '< 30.0: Normal / Non-Tubercular | > 40.0: Tubercular Etiology', method: 'Diagnostic Cut-Off Guideline' },
+    ],
+  },
+
+  // 28. AFB – TB by PCR – Tissue
+  {
+    id: 'tmpl-tbpcr-tis-28',
+    testCode: 'TBPCR-TIS-28',
+    testName: 'AFB – TB by PCR – Tissue',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Biopsy / Fresh Surgical Tissue Specimen (in Sterile Normal Saline, DO NOT add Formalin)',
+    sampleTubeColor: 'red',
+    price: 2200,
+    tatHours: 24,
+    description: 'Real-Time Polymerase Chain Reaction (RT-PCR) qualitative detection of Mycobacterium tuberculosis complex (MTBC) DNA in tissue biopsy specimens.',
+    specimenPrep: 'Collect fresh surgical/punch biopsy in sterile leak-proof container with sterile 0.9% normal saline. Do NOT place in formalin or fixatives (formalin cross-links and degrades DNA). Transport on ice packs at 2-8°C.',
+    clinicalSignificance: 'Rapid and highly sensitive molecular detection of Mycobacterium tuberculosis complex in extrapulmonary tissue biopsies (lymph nodes, synovial tissue, granulomatous lesions).',
+    parameters: [
+      { id: 'p-tbpcr-tis-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110 & MPB64)' },
+      { id: 'p-tbpcr-tis-ic', name: 'Internal Amplification Control (IC)', unit: '', refRangeText: 'Valid / Detected', method: 'Exogenous IC Amplification' },
+      { id: 'p-tbpcr-tis-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 29. AFB – TB by PCR – Urine
+  {
+    id: 'tmpl-tbpcr-urn-29',
+    testCode: 'TBPCR-URN-29',
+    testName: 'AFB – TB by PCR – Urine',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Early Morning Clean Catch Midstream Urine (30 - 50 ml Sterile Cup)',
+    sampleTubeColor: 'yellow',
+    price: 2200,
+    tatHours: 24,
+    description: 'Real-Time PCR qualitative detection of Mycobacterium tuberculosis complex DNA in concentrated early morning urine.',
+    specimenPrep: 'Collect 30-50 ml of first morning voided midstream urine in sterile container after thorough genital hygiene. Refrigerate immediately at 2-8°C if transport delayed.',
+    clinicalSignificance: 'Diagnosis of genitourinary tuberculosis (kidneys, ureters, bladder, prostate). Far superior sensitivity compared to standard AFB urine smear.',
+    parameters: [
+      { id: 'p-tbpcr-urn-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110 & MPB64)' },
+      { id: 'p-tbpcr-urn-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-urn-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 30. AFB – TB by PCR – Intestinal Fluid
+  {
+    id: 'tmpl-tbpcr-int-30',
+    testCode: 'TBPCR-INT-30',
+    testName: 'AFB – TB by PCR – Intestinal Fluid',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Intestinal Fluid / Endoscopic Aspirate (Sterile Tube 2 - 5 ml)',
+    sampleTubeColor: 'red',
+    price: 2400,
+    tatHours: 24,
+    description: 'Real-Time PCR qualitative detection of Mycobacterium tuberculosis complex DNA in gastrointestinal aspirate/fluid.',
+    specimenPrep: 'Collect endoscopic or gastrointestinal fluid under aseptic conditions into a sterile leak-proof container without preservatives. Transport on ice packs (2-8°C).',
+    clinicalSignificance: 'Essential diagnostic tool for gastrointestinal / abdominal tuberculosis, ileocecal TB, and distinguishing from Crohn disease.',
+    parameters: [
+      { id: 'p-tbpcr-int-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110)' },
+      { id: 'p-tbpcr-int-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-int-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 31. AFB – TB by PCR – Menstrual Blood
+  {
+    id: 'tmpl-tbpcr-mnb-31',
+    testCode: 'TBPCR-MNB-31',
+    testName: 'AFB – TB by PCR – Menstrual Blood',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Menstrual Blood / Endometrial Fluid (Day 1 - 2 flow in Sterile Cup or EDTA Tube)',
+    sampleTubeColor: 'purple',
+    price: 2200,
+    tatHours: 24,
+    description: 'Real-Time PCR qualitative detection of Mycobacterium tuberculosis DNA in menstrual discharge for endometrial tuberculosis evaluation.',
+    specimenPrep: 'Collect on Day 1 or Day 2 of menstrual flow using sterile menstrual cup or sterile collection container. Alternatively, aspirated endometrial blood in EDTA tube. Do NOT use heparin.',
+    clinicalSignificance: 'Key non-invasive molecular diagnostic investigation in female genital tuberculosis, secondary amenorrhea, chronic pelvic pain, and unexplained female infertility.',
+    parameters: [
+      { id: 'p-tbpcr-mnb-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110 & MPB64)' },
+      { id: 'p-tbpcr-mnb-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-mnb-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 32. AFB – TB by PCR – Whole Blood
+  {
+    id: 'tmpl-tbpcr-bld-32',
+    testCode: 'TBPCR-BLD-32',
+    testName: 'AFB – TB by PCR – Whole Blood',
+    category: 'Molecular Diagnostics',
+    sampleType: 'EDTA Whole Blood (Lavender Top 3 - 5 ml, STRICTLY NO HEPARIN)',
+    sampleTubeColor: 'purple',
+    price: 2200,
+    tatHours: 24,
+    description: 'Real-Time PCR detection of circulating Mycobacterium tuberculosis complex genomic DNA in peripheral blood.',
+    specimenPrep: 'Collect 3-5 ml venous blood into K2/K3-EDTA tube. Mix by gentle inversion 8-10 times. Heparinized tubes are unacceptable as heparin inhibits Taq DNA polymerase.',
+    clinicalSignificance: 'Aids in confirming hematogenous dissemination, miliary tuberculosis, and extrapulmonary disease in immunocompromised or febrile patients.',
+    parameters: [
+      { id: 'p-tbpcr-bld-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110)' },
+      { id: 'p-tbpcr-bld-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-bld-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 33. AFB – TB by PCR – Sputum
+  {
+    id: 'tmpl-tbpcr-spt-33',
+    testCode: 'TBPCR-SPT-33',
+    testName: 'AFB – TB by PCR – Sputum',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Early Morning Deep Expectoration Sputum (Sterile Container 5 - 10 ml)',
+    sampleTubeColor: 'blue',
+    price: 1800,
+    tatHours: 12,
+    description: 'Automated Real-Time PCR (GeneXpert / TaqMan RT-PCR) qualitative detection of Mycobacterium tuberculosis complex DNA in respiratory sputum.',
+    specimenPrep: 'Instruct patient to rinse mouth with clean water. Cough deeply from bronchi to collect early morning sputum into provided sterile container. Saliva/nasal secretions are unacceptable.',
+    clinicalSignificance: 'First-line molecular diagnostic test for pulmonary tuberculosis with high sensitivity (>98% in smear-positive, ~70% in smear-negative active pulmonary TB).',
+    parameters: [
+      { id: 'p-tbpcr-spt-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Automated Real-Time PCR / GeneXpert MTBC' },
+      { id: 'p-tbpcr-spt-ic', name: 'Sample Processing / Internal Control (SPC)', unit: '', refRangeText: 'Valid', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-spt-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Cut-off Ct > 38.0: Negative)', method: 'Fluorimetric Detection' },
+    ],
+  },
+
+  // 34. AFB – TB by PCR – Synovial Fluid
+  {
+    id: 'tmpl-tbpcr-syn-34',
+    testCode: 'TBPCR-SYN-34',
+    testName: 'AFB – TB by PCR – Synovial Fluid',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Aspirated Synovial Joint Fluid (Sterile Plain or EDTA Tube 2 - 5 ml)',
+    sampleTubeColor: 'purple',
+    price: 2400,
+    tatHours: 24,
+    description: 'Real-Time PCR qualitative detection of Mycobacterium tuberculosis complex DNA in joint synovial fluid.',
+    specimenPrep: 'Aseptically aspirate joint effusion by arthrocentesis into sterile tube. Send promptly to laboratory at 2-8°C. Do not freeze.',
+    clinicalSignificance: 'Confirmation of tuberculous monoarthritis, chronic osteoarticular tuberculosis, and tuberculous bursitis.',
+    parameters: [
+      { id: 'p-tbpcr-syn-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110)' },
+      { id: 'p-tbpcr-syn-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-syn-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 35. AFB – TB by PCR – Peritoneal Fluid (Ascitic)
+  {
+    id: 'tmpl-tbpcr-asc-35',
+    testCode: 'TBPCR-ASC-35',
+    testName: 'AFB – TB by PCR – Peritoneal Fluid (Ascitic)',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Peritoneal / Ascitic Fluid (Sterile Paracentesis Container 10 - 20 ml)',
+    sampleTubeColor: 'green',
+    price: 2400,
+    tatHours: 24,
+    description: 'Real-Time PCR qualitative detection of Mycobacterium tuberculosis complex DNA in peritoneal / ascitic fluid.',
+    specimenPrep: 'Collect 10-20 ml of peritoneal fluid via aseptic abdominal paracentesis into sterile container. Deliver immediately at 2-8°C.',
+    clinicalSignificance: 'Critical in diagnosing peritoneal / abdominal tuberculosis, especially in lymphocytic exudative ascites with low SAAG.',
+    parameters: [
+      { id: 'p-tbpcr-asc-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110)' },
+      { id: 'p-tbpcr-asc-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-asc-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 36. AFB – TB by PCR – Pericardial Fluid
+  {
+    id: 'tmpl-tbpcr-prc-36',
+    testCode: 'TBPCR-PRC-36',
+    testName: 'AFB – TB by PCR – Pericardial Fluid',
+    category: 'Molecular Diagnostics',
+    sampleType: 'Aspirated Pericardial Fluid (Pericardiocentesis Sterile Tube 2 - 5 ml)',
+    sampleTubeColor: 'purple',
+    price: 2600,
+    tatHours: 24,
+    description: 'Real-Time PCR qualitative detection of Mycobacterium tuberculosis complex DNA in aspirated pericardial effusion.',
+    specimenPrep: 'Obtain specimen aseptically during pericardiocentesis into sterile container without fixatives. Transport immediately on cold packs at 2-8°C.',
+    clinicalSignificance: 'Rapid definitive confirmation of tuberculous pericarditis to prevent life-threatening cardiac tamponade and chronic constrictive pericarditis.',
+    parameters: [
+      { id: 'p-tbpcr-prc-res', name: 'Mycobacterium tuberculosis (MTB) DNA', unit: '', refRangeText: 'Not Detected (Negative)', method: 'Real-Time PCR (Target IS6110)' },
+      { id: 'p-tbpcr-prc-ic', name: 'Internal Amplification Control', unit: '', refRangeText: 'Valid / Detected', method: 'Real-Time PCR Control' },
+      { id: 'p-tbpcr-prc-ct', name: 'Threshold Cycle (Ct Value)', unit: 'Cycles', refRangeText: 'Not Applicable (Ct > 38.0: Negative)', method: 'Real-Time Fluorimetry' },
+    ],
+  },
+
+  // 37. AFP – Serum
+  {
+    id: 'tmpl-afp-37',
+    testCode: 'AFP-37',
+    testName: 'AFP – Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (SST Yellow Top Gel Vacutainer / Plain Red 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 850,
+    tatHours: 6,
+    description: 'Quantitative chemiluminescent immunoassay for Alpha-Fetoprotein (AFP) tumor marker and maternal screening.',
+    specimenPrep: 'Standard venipuncture. Non-fasting acceptable. Centrifuge within 2 hours of collection. Avoid gross hemolysis and lipemia.',
+    clinicalSignificance: 'Oncofetal antigen useful in surveillance and diagnosis of Hepatocellular Carcinoma (HCC), testicular non-seminomatous germ cell tumors, and yolk sac tumors. Also elevated in benign conditions like liver cirrhosis and acute hepatitis.',
+    parameters: [
+      { id: 'p-afp-val', name: 'Alpha-Fetoprotein (AFP)', unit: 'ng/mL', refRangeMin: 0.0, refRangeMax: 7.0, refRangeText: '< 7.0 ng/mL (Normal Adult Males & Non-Pregnant Females) | > 200.0 ng/mL Highly Suspicious for Malignancy', method: 'Chemiluminescent Immunoassay (CLIA / CMIA)', criticalHigh: 200.0 },
+      { id: 'p-afp-interp', name: 'Clinical Interpretation / Risk', unit: '', refRangeText: 'Normal (< 7.0 ng/mL)', method: 'Clinical Oncology Cut-Off' },
+    ],
+  },
+
+  // 38. Albumin – Serum
+  {
+    id: 'tmpl-alb-38',
+    testCode: 'ALB-38',
+    testName: 'Albumin – Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Yellow Top Gel SST / Plain Red Vacutainer 2 ml)',
+    sampleTubeColor: 'amber',
+    price: 180,
+    tatHours: 2,
+    description: 'Quantitative photometric dye-binding assay for human serum albumin concentration.',
+    specimenPrep: 'Standard venipuncture. Overnight fasting preferred. Avoid prolonged venous occlusion.',
+    clinicalSignificance: 'Major circulating protein synthesized exclusively by hepatocytes. Essential indicator of hepatic synthetic function, nutritional status, oncotic pressure, nephrotic syndrome, and protein-losing enteropathy.',
+    parameters: [
+      { id: 'p-alb-ser', name: 'Serum Albumin', unit: 'g/dL', refRangeMin: 3.5, refRangeMax: 5.2, refRangeText: '3.50 - 5.20', method: 'Bromocresol Green (BCG) Dye Binding', criticalLow: 2.0, criticalHigh: 6.0 },
+    ],
+  },
+
+  // 39. Alkaline Phosphatase – Serum
+  {
+    id: 'tmpl-alp-39',
+    testCode: 'ALP-39',
+    testName: 'Alkaline Phosphatase – Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Yellow Top Gel SST / Plain Red Vacutainer 2 ml)',
+    sampleTubeColor: 'amber',
+    price: 220,
+    tatHours: 2,
+    description: 'Kinetic photometric measurement of Alkaline Phosphatase (ALP) enzyme activity in serum.',
+    specimenPrep: 'Fasting sample preferred (intestinal ALP isoenzyme increases after fatty meals). Centrifuge and separate serum promptly.',
+    clinicalSignificance: 'Evaluation of hepatobiliary diseases (cholestasis, biliary obstruction, infiltrative liver disease) and bone disorders with osteoblastic hyperactivity (Paget disease, rickets, osteomalacia, metastatic bone disease). Physiological elevation occurs in growing children and third-trimester pregnancy.',
+    parameters: [
+      { id: 'p-alp-ser', name: 'Alkaline Phosphatase (ALP)', unit: 'U/L', refRangeMin: 44.0, refRangeMax: 147.0, refRangeText: '44.0 - 147.0 (Adults) | Higher in growing children & 3rd trimester pregnancy', method: 'p-Nitrophenylphosphate Kinetic (IFCC 37°C)', criticalHigh: 500.0 },
+    ],
+  },
+
+  // 40. AMH – Serum by CLIA
+  {
+    id: 'tmpl-amh-40',
+    testCode: 'AMH-40',
+    testName: 'AMH – Serum by CLIA',
+    category: 'Endocrinology',
+    sampleType: 'Serum (Plain Clot Red Top / SST Gold 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1600,
+    tatHours: 6,
+    description: 'Fully automated Chemiluminescent Immunoassay (CLIA) quantitative measurement of Anti-Müllerian Hormone (AMH).',
+    specimenPrep: 'Blood may be collected at any phase of the menstrual cycle. Fasting is not required. Store serum frozen if assay is delayed.',
+    clinicalSignificance: 'Gold standard biomarker for female ovarian reserve and response predictor in Assisted Reproductive Technology (IVF). Useful in diagnosing Polycystic Ovary Syndrome (PCOS), premature ovarian insufficiency (POI), and granulosa cell tumors.',
+    parameters: [
+      { id: 'p-amh-val', name: 'Anti-Müllerian Hormone (AMH)', unit: 'ng/mL', refRangeMin: 1.0, refRangeMax: 4.0, refRangeText: '1.00 - 4.00 ng/mL (Optimal Reserve)', method: 'Chemiluminescent Immunoassay (CLIA - Fully Automated)', criticalLow: 0.5 },
+      { id: 'p-amh-reserve', name: 'Ovarian Reserve Stratification', unit: '', refRangeText: '< 0.5: Very Low | 0.5 - 1.0: Low | 1.0 - 4.0: Normal | > 4.0: High / PCOS', method: 'Clinical Guideline Stratification' },
+      { id: 'p-amh-agedep', name: 'Age-Specific Reference Range', unit: '', refRangeText: '< 25y: 1.5-4.5 | 25-30y: 1.2-4.0 | 31-35y: 0.9-3.5 | 36-40y: 0.5-2.5 | > 40y: < 1.0 ng/mL', method: 'CLIA Assay Reference Stratification' },
+    ],
+  },
+
+  // 41. Amylase – Serum
+  {
+    id: 'tmpl-amyl-41',
+    testCode: 'AMYL-41',
+    testName: 'Amylase – Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Yellow Top Gel SST / Plain Red Vacutainer 2 ml)',
+    sampleTubeColor: 'amber',
+    price: 380,
+    tatHours: 2,
+    description: 'Quantitative photometric enzymatic determination of alpha-amylase activity in serum.',
+    specimenPrep: 'Fasting preferred. Avoid salivary contamination during collection and pipetting.',
+    clinicalSignificance: 'Biomarker for acute pancreatitis (rises within 6-12 hours of onset), pancreatic duct obstruction, acute abdominal crises, and parotitis (mumps).',
+    parameters: [
+      { id: 'p-amyl-ser', name: 'Serum Amylase', unit: 'U/L', refRangeMin: 28.0, refRangeMax: 100.0, refRangeText: '28.0 - 100.0', method: 'CNPG3 Enzymatic Photometric', criticalHigh: 300.0 },
+    ],
+  },
+
+  // 42. ACE – Serum
+  {
+    id: 'tmpl-ace-42',
+    testCode: 'ACE-42',
+    testName: 'ACE – Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Plain Red Clot Tube WITHOUT Anticoagulant 3 ml; DO NOT use EDTA or Citrate)',
+    sampleTubeColor: 'red',
+    price: 1200,
+    tatHours: 8,
+    description: 'Kinetic spectrophotometric measurement of Angiotensin Converting Enzyme (ACE) activity in serum.',
+    specimenPrep: 'Collect in plain red tube without anticoagulants. EDTA, citrate, and oxalate strictly forbidden because they chelate the zinc co-factor necessary for enzyme activity. Hemolyzed specimens are rejected.',
+    clinicalSignificance: 'Aids in the clinical diagnosis and therapeutic monitoring of Sarcoidosis. Elevated in ~70-80% of active sarcoidosis cases. Also monitored in Gaucher disease, leprosy, and assessing ACE inhibitor compliance.',
+    parameters: [
+      { id: 'p-ace-val', name: 'Angiotensin Converting Enzyme (ACE)', unit: 'U/L', refRangeMin: 8.0, refRangeMax: 52.0, refRangeText: '8.0 - 52.0 U/L (Adults) | > 65.0 U/L suggestive of active Sarcoidosis', method: 'Spectrophotometric Kinetic (FAPGG Substrate)', criticalHigh: 100.0 },
+    ],
+  },
+
+  // 43. APA IgG Antibody – Serum
+  {
+    id: 'tmpl-apa-igg-43',
+    testCode: 'APA-IGG-43',
+    testName: 'APA IgG Antibody – Serum',
+    category: 'Serology',
+    sampleType: 'Serum (Plain Clot Red Top / SST Gold 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 950,
+    tatHours: 6,
+    description: 'Quantitative / semi-quantitative ELISA determination of Anti-Phospholipid IgG antibodies in serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum from clot promptly within 2 hours. Avoid gross lipemia.',
+    clinicalSignificance: 'Laboratory diagnosis of Antiphospholipid Syndrome (APS) and systemic lupus erythematosus (SLE). High IgG titers correlate strongly with venous and arterial thrombosis, recurrent miscarriages / fetal loss, and thrombocytopenia.',
+    parameters: [
+      { id: 'p-apa-igg-val', name: 'APA IgG Antibody Level', unit: 'GPL-U/mL', refRangeMin: 0.0, refRangeMax: 10.0, refRangeText: '< 10.0 (Negative) | 10.0 - 15.0 (Equivocal) | > 15.0 (Positive)', method: 'Enzyme-Linked Immunosorbent Assay (ELISA)' },
+      { id: 'p-apa-igg-interp', name: 'APA IgG Interpretation', unit: '', refRangeText: 'Negative (< 10.0 GPL-U/mL)', method: 'ELISA Assay Cut-Off' },
+    ],
+  },
+
+  // 44. APA IgM Antibody – Serum
+  {
+    id: 'tmpl-apa-igm-44',
+    testCode: 'APA-IGM-44',
+    testName: 'APA IgM Antibody – Serum',
+    category: 'Serology',
+    sampleType: 'Serum (Plain Clot Red Top / SST Gold 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 950,
+    tatHours: 6,
+    description: 'Quantitative / semi-quantitative ELISA determination of Anti-Phospholipid IgM antibodies in serum.',
+    specimenPrep: 'Standard venipuncture. Separate serum promptly. Avoid repeated freeze-thaw cycles.',
+    clinicalSignificance: 'Evaluation of Antiphospholipid Syndrome (APS), unexplained thrombotic episodes, and recurrent pregnancy loss. Persistent positivity confirmed at 12 weeks is required for formal APS classification.',
+    parameters: [
+      { id: 'p-apa-igm-val', name: 'APA IgM Antibody Level', unit: 'MPL-U/mL', refRangeMin: 0.0, refRangeMax: 10.0, refRangeText: '< 10.0 (Negative) | 10.0 - 15.0 (Equivocal) | > 15.0 (Positive)', method: 'Enzyme-Linked Immunosorbent Assay (ELISA)' },
+      { id: 'p-apa-igm-interp', name: 'APA IgM Interpretation', unit: '', refRangeText: 'Negative (< 10.0 MPL-U/mL)', method: 'ELISA Assay Cut-Off' },
+    ],
+  },
+
+  // 45. ASO Quantitative – Serum
+  {
+    id: 'tmpl-aso-45',
+    testCode: 'ASO-45',
+    testName: 'ASO Quantitative – Serum',
+    category: 'Serology',
+    sampleType: 'Serum (Yellow Top Gel SST / Plain Red Vacutainer 2 ml)',
+    sampleTubeColor: 'amber',
+    price: 450,
+    tatHours: 3,
+    description: 'Quantitative latex-enhanced particle immunoturbidimetric determination of Anti-Streptolysin O (ASO) antibodies.',
+    specimenPrep: 'Standard venipuncture. Fasting not required. Do not use severely hemolyzed or lipemic serum.',
+    clinicalSignificance: 'Confirms recent or recurrent Group A beta-hemolytic Streptococcus (Streptococcus pyogenes) infection. Essential diagnostic criterion in acute Rheumatic Fever, Sydenham chorea, and Post-Streptococcal Glomerulonephritis (PSGN).',
+    parameters: [
+      { id: 'p-aso-quant', name: 'Anti-Streptolysin O (ASO) Titre', unit: 'IU/mL', refRangeMin: 0.0, refRangeMax: 200.0, refRangeText: '< 200.0 (Adults) | < 150.0 (Children < 5y) | < 200 - 300 (School Age)', method: 'Latex-Enhanced Immunoturbidimetry', criticalHigh: 400.0 },
+      { id: 'p-aso-status', name: 'Serological Status', unit: '', refRangeText: 'Non-Reactive (< 200.0 IU/mL)', method: 'Immunoturbidimetric Cut-Off' },
+    ],
+  },
+
+  // 46. AMH PLUS (AMH, LH, FSH, PRL, TSH, TESTOSTERONE FREE & TOTAL, E2)
+  {
+    id: 'tmpl-amh-plus-46',
+    testCode: 'AMH-PLUS-46',
+    testName: 'AMH PLUS (AMH, LH, FSH, PRL, TSH, TESTOSTERONE FREE & TOTAL, E2)',
+    category: 'Endocrinology',
+    sampleType: 'Serum (SST Gold Top Vacutainer 4 ml)',
+    sampleTubeColor: 'amber',
+    price: 3500,
+    tatHours: 12,
+    description: 'Comprehensive female reproductive endocrine evaluation integrating ovarian reserve, pituitary gonadotropins, prolactin, thyroid axis, and androgen profile.',
+    specimenPrep: 'Morning fasting blood draw preferred. Collect between Day 2 to Day 5 of menstrual cycle if evaluating baseline ovarian reserve. Centrifuge within 1 hour.',
+    clinicalSignificance: 'Comprehensive diagnostic panel for Polycystic Ovary Syndrome (PCOS), ovarian reserve estimation in IVF/ART, hypogonadotropic hypogonadism, hyperprolactinemia, and female subfertility.',
+    parameters: [
+      { id: 'p-ap-amh', name: 'AMH (Anti-Müllerian Hormone)', unit: 'ng/mL', refRangeMin: 1.0, refRangeMax: 4.0, refRangeText: '1.00 - 4.00 ng/mL (Optimal Reserve) | < 1.0: Diminished | > 4.0: High / PCOS risk', method: 'Chemiluminescent Immunoassay (CLIA)' },
+      { id: 'p-ap-lh', name: 'LH (Luteinizing Hormone)', unit: 'mIU/mL', refRangeMin: 2.4, refRangeMax: 12.6, refRangeText: 'Follicular: 2.4 - 12.6 | Mid-cycle: 14.0 - 95.6 | Luteal: 1.0 - 11.4 | Postmenopausal: 7.7 - 58.5', method: 'Electrochemiluminescence Immunoassay (ECLIA)' },
+      { id: 'p-ap-fsh', name: 'FSH (Follicle Stimulating Hormone)', unit: 'mIU/mL', refRangeMin: 3.5, refRangeMax: 12.5, refRangeText: 'Follicular: 3.5 - 12.5 | Mid-cycle: 4.7 - 21.5 | Luteal: 1.7 - 7.7 | Postmenopausal: 25.8 - 134.8', method: 'Electrochemiluminescence Immunoassay (ECLIA)' },
+      { id: 'p-ap-prl', name: 'Prolactin (PRL)', unit: 'ng/mL', refRangeMin: 4.8, refRangeMax: 23.3, refRangeText: 'Non-pregnant Females: 4.8 - 23.3 | Postmenopausal: 1.8 - 20.3 | Males: 4.0 - 15.2 ng/mL', method: 'Electrochemiluminescence Immunoassay (ECLIA)' },
+      { id: 'p-ap-tsh', name: 'TSH (Thyroid Stimulating Hormone Ultra-Sensitive)', unit: 'mcIU/mL', refRangeMin: 0.35, refRangeMax: 4.94, refRangeText: '0.35 - 4.94 mcIU/mL (Non-pregnant Adults) | Pregnancy 1st Trimester: 0.1 - 2.5', method: 'ECLIA 3rd Generation Ultra-sensitive' },
+      { id: 'p-ap-testo-free', name: 'Testosterone - Free', unit: 'pg/mL', refRangeMin: 0.1, refRangeMax: 2.5, refRangeText: 'Females: 0.1 - 2.5 pg/mL | Males: 4.5 - 25.0 pg/mL', method: 'Enzyme Immunoassay (EIA / CLIA)' },
+      { id: 'p-ap-testo-tot', name: 'Testosterone - Total', unit: 'ng/dL', refRangeMin: 15.0, refRangeMax: 70.0, refRangeText: 'Females: 15 - 70 ng/dL | Males: 240 - 870 ng/dL', method: 'Electrochemiluminescence Immunoassay (ECLIA)' },
+      { id: 'p-ap-e2', name: 'Estradiol (E2)', unit: 'pg/mL', refRangeMin: 12.5, refRangeMax: 166.0, refRangeText: 'Follicular: 12.5 - 166.0 | Ovulation: 85.8 - 498.0 | Luteal: 43.8 - 211.0 | Postmenopausal: < 5.0 - 54.7', method: 'Electrochemiluminescence Immunoassay (ECLIA)' },
+    ],
+  },
+
+  // 47. Anti Neutrophilic Cytoplasmic Antibody (ANCA-IFA), Serum
+  {
+    id: 'tmpl-anca-ifa-47',
+    testCode: 'ANCA-IFA-47',
+    testName: 'Anti Neutrophilic Cytoplasmic Antibody (ANCA-IFA), Serum',
+    category: 'Immunology',
+    sampleType: 'Serum (SST Gold Top / Plain Clot 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1600,
+    tatHours: 24,
+    description: 'Detection and pattern differentiation of anti-neutrophil cytoplasmic antibodies (ANCA) using ethanol/formalin-fixed human neutrophils.',
+    specimenPrep: 'Standard venipuncture. Allow sample to clot 30 minutes, centrifuge at 2500 RPM for 10 min. Store at 2-8°C.',
+    clinicalSignificance: 'Diagnostic biomarker for systemic necrotizing vasculitides: Granulomatosis with Polyangiitis (GPA/Wegener - c-ANCA/PR3), Microscopic Polyangiitis (MPA - p-ANCA/MPO), and Eosinophilic Granulomatosis with Polyangiitis (EGPA/Churg-Strauss).',
+    parameters: [
+      { id: 'p-anca-screen', name: 'ANCA IFA Screening', unit: '', refRangeText: 'Negative / Non-Reactive', method: 'Indirect Immunofluorescence Assay (IFA)' },
+      { id: 'p-anca-pattern', name: 'ANCA Staining Pattern', unit: '', refRangeText: 'Negative / Cytoplasmic (c-ANCA) / Perinuclear (p-ANCA) / Atypical', method: 'Fluorescence Microscopy' },
+      { id: 'p-anca-titre', name: 'ANCA Endpoint Titre', unit: '', refRangeText: '< 1:20 (Negative / Non-Reactive)', method: 'Serial Endpoint Titration IFA' },
+      { id: 'p-anca-interp', name: 'Clinical IFA Interpretation', unit: '', refRangeText: 'Negative (< 1:20). No circulating neutrophil cytoplasmic antibodies detected.', method: 'Immunological Clinical Interpretation' },
+    ],
+  },
+
+  // 48. Iron Deficiency Profile (Iron, TIBC, Transferrin Saturation)
+  {
+    id: 'tmpl-iron-def-48',
+    testCode: 'IRON-DEF-48',
+    testName: 'Iron Deficiency Profile (Iron, TIBC, Transferrin Saturation)',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Yellow Top Gel SST 3 ml - Fasting Specimen)',
+    sampleTubeColor: 'amber',
+    price: 750,
+    tatHours: 4,
+    description: 'Targeted assessment of functional iron metabolism, total iron transport capacity, and fractional transferrin saturation.',
+    specimenPrep: 'Fasting specimen preferred (10-12 hours). Morning draw recommended due to diurnal variation in serum iron. Avoid hemolyzed specimens.',
+    clinicalSignificance: 'Differential diagnosis of microcytic hypochromic anemias, staging of iron deficiency anemia vs. anemia of chronic disease, and screening for iron overload / hemochromatosis.',
+    parameters: [
+      { id: 'p-idp-iron', name: 'Serum Iron', unit: 'ug/dL', refRangeMin: 60.0, refRangeMax: 170.0, refRangeText: '60.0 - 170.0 (Males) | 50.0 - 160.0 (Females) ug/dL', method: 'Ferrozine Photometric Colorimetric' },
+      { id: 'p-idp-tibc', name: 'Total Iron Binding Capacity (TIBC)', unit: 'ug/dL', refRangeMin: 250.0, refRangeMax: 450.0, refRangeText: '250.0 - 450.0 ug/dL', method: 'Spectrophotometric Direct Saturation' },
+      { id: 'p-idp-tsat', name: 'Transferrin Saturation', unit: '%', refRangeMin: 20.0, refRangeMax: 50.0, refRangeText: '20.0 - 50.0 % (Iron Deficiency: < 16.0% | Iron Overload: > 50.0%)', method: 'Calculated: (Serum Iron / TIBC) * 100' },
+    ],
+  },
+
+  // 49. Beta 2 Glycoprotein 1 - IgG Antibody, Serum
+  {
+    id: 'tmpl-b2gp1-igg-49',
+    testCode: 'B2GP1-IGG-49',
+    testName: 'Beta 2 Glycoprotein 1 - IgG Antibody, Serum',
+    category: 'Immunology',
+    sampleType: 'Serum (Plain Clot / Gel SST 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1200,
+    tatHours: 24,
+    description: 'Quantitative determination of IgG autoantibodies against Beta-2 Glycoprotein 1 in human serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum promptly within 2 hours. Do not use grossly hemolyzed samples.',
+    clinicalSignificance: 'Key international laboratory criterion for Antiphospholipid Syndrome (APS) and secondary APS in SLE. IgG antibodies correlate with arterial/venous thrombotic risk and obstetric complications.',
+    parameters: [
+      { id: 'p-b2gp1-igg-val', name: 'Beta-2 Glycoprotein 1 IgG Antibody', unit: 'SGU', refRangeMin: 0.0, refRangeMax: 20.0, refRangeText: '< 20.0 (Negative) | 20.0 - 40.0 (Equivocal / Low Positive) | > 40.0 (Moderate to High Positive)', method: 'Chemiluminescent Immunoassay (CLIA)' },
+      { id: 'p-b2gp1-igg-interp', name: 'Beta-2 GP1 IgG Clinical Interpretation', unit: '', refRangeText: 'Negative (< 20.0 SGU). Levels > 40 SGU on two occasions >= 12 weeks apart support APS diagnosis.', method: 'Sydney Consensus Classification Criteria' },
+    ],
+  },
+
+  // 50. Beta 2 Glycoprotein 1 - IgM Antibody, Serum
+  {
+    id: 'tmpl-b2gp1-igm-50',
+    testCode: 'B2GP1-IGM-50',
+    testName: 'Beta 2 Glycoprotein 1 - IgM Antibody, Serum',
+    category: 'Immunology',
+    sampleType: 'Serum (Plain Clot / Gel SST 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1200,
+    tatHours: 24,
+    description: 'Quantitative determination of IgM autoantibodies against Beta-2 Glycoprotein 1 in human serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum promptly within 2 hours.',
+    clinicalSignificance: 'Laboratory criterion marker for Antiphospholipid Syndrome (APS). Isolated IgM positivity may indicate early autoimmunity or transient anti-phospholipid responses; persistent positivity after 12 weeks is required.',
+    parameters: [
+      { id: 'p-b2gp1-igm-val', name: 'Beta-2 Glycoprotein 1 IgM Antibody', unit: 'SMU', refRangeMin: 0.0, refRangeMax: 20.0, refRangeText: '< 20.0 (Negative) | 20.0 - 40.0 (Equivocal / Low Positive) | > 40.0 (Moderate to High Positive)', method: 'Chemiluminescent Immunoassay (CLIA)' },
+      { id: 'p-b2gp1-igm-interp', name: 'Beta-2 GP1 IgM Clinical Interpretation', unit: '', refRangeText: 'Negative (< 20.0 SMU). Confirmatory re-testing after 12 weeks advised if clinically indicated.', method: 'Sydney Consensus Classification Criteria' },
+    ],
+  },
+
+  // 51. Bilirubin - Total, Serum
+  {
+    id: 'tmpl-bilitot-51',
+    testCode: 'BILITOT-51',
+    testName: 'Bilirubin - Total, Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (SST Gold Top 2 ml - Protect from light)',
+    sampleTubeColor: 'amber',
+    price: 150,
+    tatHours: 2,
+    description: 'Direct quantitative photometric assay of Total Bilirubin in human serum.',
+    specimenPrep: 'Fasting specimen preferred. Protect sample from direct light exposure to prevent photo-oxidation of bilirubin. Separate serum promptly.',
+    clinicalSignificance: 'Primary biochemical indicator of hepatic excretory function, hemolytic disorders, biliary tree obstruction, and neonatal hyperbilirubinemia.',
+    parameters: [
+      { id: 'p-bilitot-val', name: 'Total Bilirubin', unit: 'mg/dL', refRangeMin: 0.2, refRangeMax: 1.2, refRangeText: '0.20 - 1.20 mg/dL (Adults) | Full-term Neonates 24h: < 8.0 | 48h: < 12.0 | 3-5 days: < 15.0 mg/dL', method: 'Diazo DPD Photometric Colorimetric', criticalHigh: 15.0 },
+    ],
+  },
+
+  // 52. Blood Urea Nitrogen (BUN), Serum
+  {
+    id: 'tmpl-bun-52',
+    testCode: 'BUN-52',
+    testName: 'Blood Urea Nitrogen (BUN), Serum',
+    category: 'Biochemistry',
+    sampleType: 'Serum (SST Gold Top 2 ml)',
+    sampleTubeColor: 'amber',
+    price: 160,
+    tatHours: 2,
+    description: 'Quantitative enzymatic determination of urea nitrogen in serum.',
+    specimenPrep: 'Standard venipuncture. Fasting not strictly required. Avoid gross hemolysis.',
+    clinicalSignificance: 'Assessment of renal glomerular filtration, protein catabolism, prerenal azotemia (dehydration, congestive heart failure, GI hemorrhage), and postrenal urinary tract obstruction.',
+    parameters: [
+      { id: 'p-bun-val', name: 'Blood Urea Nitrogen (BUN)', unit: 'mg/dL', refRangeMin: 7.0, refRangeMax: 20.0, refRangeText: '7.0 - 20.0 mg/dL (Adults) | Children: 5.0 - 18.0 mg/dL', method: 'Urease-GLDH Enzymatic Kinetic UV', criticalHigh: 60.0 },
+    ],
+  },
+
+  // 53. Beta HCG - Total, Serum
+  {
+    id: 'tmpl-bhcg-tot-53',
+    testCode: 'BHCG-TOT-53',
+    testName: 'Beta HCG - Total, Serum',
+    category: 'Endocrinology',
+    sampleType: 'Serum (SST Gold Top / Plain Clot 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 650,
+    tatHours: 3,
+    description: 'High-sensitivity quantitative measurement of total beta-human chorionic gonadotropin (intact hCG + free beta subunit) in serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum. Fasting not required.',
+    clinicalSignificance: 'Confirmation and gestational monitoring of intrauterine pregnancy, evaluation of ectopic pregnancy, spontaneous miscarriage risk, and gestational trophoblastic disease / choriocarcinoma monitoring.',
+    parameters: [
+      { id: 'p-bhcg-tot-val', name: 'Total Beta-hCG (Quantitative)', unit: 'mIU/mL', refRangeText: 'Non-pregnant Females: < 5.0 | Adult Males: < 2.0 | Postmenopausal: < 9.5 mIU/mL', method: 'Electrochemiluminescence Immunoassay (ECLIA 4th Gen)' },
+      { id: 'p-bhcg-gest-ref', name: 'Pregnancy Reference Guidelines', unit: 'mIU/mL', refRangeText: '3-4w: 9 - 130 | 4-5w: 75 - 2,600 | 5-6w: 850 - 20,800 | 6-7w: 4,000 - 100,200 | 7-12w: 11,500 - 289,000 | 12-16w: 18,300 - 137,000 | 16-29w: 1,400 - 53,000', method: 'ECLIA Gestational Stratification' },
+      { id: 'p-bhcg-tot-interp', name: 'Beta-hCG Clinical Status', unit: '', refRangeText: '< 5.0: Negative / Non-pregnant | 5.0 - 25.0: Equivocal / Borderline | > 25.0: Positive for Pregnancy', method: 'ACOG / Clinical Guidance' },
+    ],
+  },
+
+  // 54. Beta HCG - Free, Serum
+  {
+    id: 'tmpl-bhcg-free-54',
+    testCode: 'BHCG-FREE-54',
+    testName: 'Beta HCG - Free, Serum',
+    category: 'Endocrinology',
+    sampleType: 'Serum (SST Gold Top 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 850,
+    tatHours: 4,
+    description: 'Specific quantitative measurement of the uncombined free beta subunit of human chorionic gonadotropin in maternal serum.',
+    specimenPrep: 'Collect maternal serum between 11w0d and 13w6d of gestation for combined first-trimester screening. Note precise gestational age / CRL on requisition.',
+    clinicalSignificance: 'Essential biochemical constituent of first-trimester combined aneuploidy screening (Trisomy 21 Down Syndrome, Trisomy 18 Edwards Syndrome, and Trisomy 13 Patau Syndrome) in conjunction with PAPP-A and nuchal translucency (NT).',
+    parameters: [
+      { id: 'p-bhcg-free-val', name: 'Free Beta-hCG (Quantitative)', unit: 'ng/mL', refRangeText: 'Non-pregnant Females & Adult Males: < 0.10 ng/mL | 1st Trimester Screen: 10.0 - 50.0 ng/mL (Gestational age dependent)', method: 'Time-Resolved Amplified Cryptate Emission (TRACE) / CLIA' },
+      { id: 'p-bhcg-free-mom', name: 'First Trimester Multiples of Median (MoM)', unit: 'MoM', refRangeMin: 0.5, refRangeMax: 2.5, refRangeText: '0.50 - 2.50 MoM (Normal singleton pregnancy range in Dual / Combined 1st Trimester Screening)', method: 'Calculated with FMF-certified prenatal software' },
+      { id: 'p-bhcg-free-note', name: 'Prenatal Risk Assessment Note', unit: '', refRangeText: 'Free Beta-hCG is used primarily in 1st trimester chromosomal aneuploidy screening (Trisomy 21 / 18 / 13) and trophoblastic disease; not equivalent to Total hCG.', method: 'Clinical Screening Guideline' },
+    ],
+  },
+
+  // 55. BIOPSY (Large)
+  {
+    id: 'tmpl-biopsy-lg-55',
+    testCode: 'BIOPSY-LG-55',
+    testName: 'BIOPSY (Large)',
+    category: 'Histopathology',
+    sampleType: 'Tissue in 10% Neutral Buffered Formalin (Large Specimen / Radical Resection)',
+    sampleTubeColor: 'blue',
+    price: 3200,
+    tatHours: 72,
+    description: 'Surgical histopathological examination of large organ resections, complex multi-visceral specimens, or radical oncology excision specimens.',
+    specimenPrep: 'Fix immediately in 10% Neutral Buffered Formalin (10:1 fixative-to-tissue ratio). Ensure container is labeled with patient UHID, anatomical site, and orientation sutures.',
+    clinicalSignificance: 'Comprehensive pathological diagnosis, oncological staging (pTNM), histological grading, evaluation of proximal/distal/radial surgical resection margins, and lymph node assessment.',
+    parameters: [
+      { id: 'p-bxl-site', name: 'Specimen / Anatomic Site', unit: '', refRangeText: 'As specified on surgical pathology requisition', method: 'Gross & Histopathological Examination' },
+      { id: 'p-bxl-history', name: 'Clinical History & Operative Findings', unit: '', refRangeText: 'Clinical details, imaging and intraoperative findings provided by operating surgeon', method: 'Clinical Correlation' },
+      { id: 'p-bxl-gross', name: 'Gross Description', unit: '', refRangeText: 'Macroscopic examination: dimensions, weight, appearance, resection margins, orientation, and blocks submitted', method: 'Standard Surgical Pathology Protocol' },
+      { id: 'p-bxl-micro', name: 'Microscopic Description', unit: '', refRangeText: 'Histomorphological assessment of H&E sections: tumor type, histologic grade, depth of invasion, surgical resection margins, lymphovascular and perineural invasion, lymph nodes status', method: 'Light Microscopy (H&E Staining)' },
+      { id: 'p-bxl-diagnosis', name: 'Final Histopathological Diagnosis', unit: '', refRangeText: 'Definitive histological diagnosis and pathological TNM staging (pTNM)', method: 'Histopathological Evaluation' },
+      { id: 'p-bxl-additional', name: 'Additional Findings / Comments', unit: '', refRangeText: 'Ancillary studies, IHC recommendations, or special stains', method: 'Pathological Interpretation' },
+      { id: 'p-bxl-comment', name: 'Pathologist Comment', unit: '', refRangeText: 'Clinicopathological correlation and multidisciplinary tumor board review recommended', method: 'Consultant Pathologist Review' },
+    ],
+  },
+
+  // 56. BIOPSY (Medium)
+  {
+    id: 'tmpl-biopsy-md-56',
+    testCode: 'BIOPSY-MD-56',
+    testName: 'BIOPSY (Medium)',
+    category: 'Histopathology',
+    sampleType: 'Tissue in 10% Neutral Buffered Formalin (Medium Specimen / Excision / Incisional Biopsy)',
+    sampleTubeColor: 'blue',
+    price: 2200,
+    tatHours: 48,
+    description: 'Histopathological examination of intermediate-sized surgical specimens including excisional biopsies, wedge resections, curettings, and small organ excisions (e.g., appendix, gallbladder, breast lumpectomy).',
+    specimenPrep: 'Fix immediately in 10% Neutral Buffered Formalin. Container must specify exact anatomical site and laterality.',
+    clinicalSignificance: 'Definitive pathological diagnosis, margin clearance assessment, identification of inflammatory / neoplastic processes, and guidance for further therapy.',
+    parameters: [
+      { id: 'p-bxm-site', name: 'Specimen / Anatomic Site', unit: '', refRangeText: 'As specified on surgical pathology requisition', method: 'Gross & Histopathological Examination' },
+      { id: 'p-bxm-history', name: 'Clinical History', unit: '', refRangeText: 'Clinical diagnosis and relevant findings provided by clinician', method: 'Clinical Correlation' },
+      { id: 'p-bxm-gross', name: 'Gross Description', unit: '', refRangeText: 'Macroscopic examination of tissue specimen, dimensions, color, consistency, and blocks processed', method: 'Standard Surgical Pathology Protocol' },
+      { id: 'p-bxm-micro', name: 'Microscopic Description', unit: '', refRangeText: 'Histomorphological assessment of H&E stained sections', method: 'Light Microscopy (H&E Staining)' },
+      { id: 'p-bxm-diagnosis', name: 'Final Histopathological Diagnosis', unit: '', refRangeText: 'Definitive histological diagnosis', method: 'Histopathological Evaluation' },
+      { id: 'p-bxm-additional', name: 'Additional Findings / Comments', unit: '', refRangeText: 'Relevant ancillary findings and margin status if applicable', method: 'Pathological Interpretation' },
+      { id: 'p-bxm-comment', name: 'Pathologist Comment', unit: '', refRangeText: 'Clinical correlation advised', method: 'Consultant Pathologist Review' },
+    ],
+  },
+
+  // 57. BIOPSY (Small)
+  {
+    id: 'tmpl-biopsy-sm-57',
+    testCode: 'BIOPSY-SM-57',
+    testName: 'BIOPSY (Small)',
+    category: 'Histopathology',
+    sampleType: 'Tissue in 10% Neutral Buffered Formalin (Small Specimen / Endoscopic / Punch / Needle Core Biopsy)',
+    sampleTubeColor: 'blue',
+    price: 1400,
+    tatHours: 48,
+    description: 'Histopathological examination of small diagnostic tissue biopsies, including endoscopic mucosal biopsies (GI, bronchus, bladder), skin punch biopsies, and needle core biopsies.',
+    specimenPrep: 'Place tissue fragments immediately into 10% Neutral Buffered Formalin. Handle delicately with non-toothed forceps to avoid crush artifact.',
+    clinicalSignificance: 'Rapid definitive histological diagnosis of mucosal inflammation, Helicobacter pylori, celiac disease, dysplasia, cutaneous lesions, and malignant infiltrates.',
+    parameters: [
+      { id: 'p-bxs-site', name: 'Specimen / Anatomic Site', unit: '', refRangeText: 'As specified on biopsy requisition', method: 'Gross & Histopathological Examination' },
+      { id: 'p-bxs-history', name: 'Clinical History', unit: '', refRangeText: 'Clinical presentation and clinical indication', method: 'Clinical Correlation' },
+      { id: 'p-bxs-gross', name: 'Gross Description', unit: '', refRangeText: 'Number of tissue bits, size range, color, and entire specimen processed in cassettes', method: 'Standard Surgical Pathology Protocol' },
+      { id: 'p-bxs-micro', name: 'Microscopic Description', unit: '', refRangeText: 'Microscopic examination of multiple serial levels of H&E stained tissue sections', method: 'Light Microscopy (H&E Staining)' },
+      { id: 'p-bxs-diagnosis', name: 'Final Histopathological Diagnosis', unit: '', refRangeText: 'Definitive histological diagnosis', method: 'Histopathological Evaluation' },
+      { id: 'p-bxs-additional', name: 'Additional Findings / Comments', unit: '', refRangeText: 'Relevant notes, ulceration, granulomas, or dysplasia assessment', method: 'Pathological Interpretation' },
+      { id: 'p-bxs-comment', name: 'Pathologist Comment', unit: '', refRangeText: 'Clinical correlation advised', method: 'Consultant Pathologist Review' },
+    ],
+  },
+
+  // 58. CRP
+  {
+    id: 'tmpl-crp-std-58',
+    testCode: 'CRP-STD-58',
+    testName: 'CRP',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Yellow Top Gel SST 2 ml)',
+    sampleTubeColor: 'amber',
+    price: 350,
+    tatHours: 2,
+    description: 'Quantitative determination of C-Reactive Protein (CRP) in serum by particle-enhanced immunoturbidimetry.',
+    specimenPrep: 'Standard venipuncture. Fasting not required. Avoid repeated freeze-thaw cycles.',
+    clinicalSignificance: 'Acute phase reactant for evaluating systemic inflammation, bacterial vs. viral infection, tissue injury, postoperative complications, and monitoring response to anti-inflammatory or antimicrobial treatment.',
+    parameters: [
+      { id: 'p-crp-val', name: 'C-Reactive Protein (CRP)', unit: 'mg/L', refRangeMin: 0.0, refRangeMax: 6.0, refRangeText: '< 6.0 mg/L (Normal / Negative) | > 10.0 mg/L Clinically significant acute inflammation', method: 'Particle-Enhanced Immunoturbidimetry', criticalHigh: 50.0 },
+    ],
+  },
+
+  // 59. CA 125
+  {
+    id: 'tmpl-ca125-59',
+    testCode: 'CA125-59',
+    testName: 'CA 125',
+    category: 'Immunology',
+    sampleType: 'Serum (SST Gold Top 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1100,
+    tatHours: 4,
+    description: 'Quantitative electrochemiluminescent measurement of Cancer Antigen 125 (CA 125) in serum.',
+    specimenPrep: 'Standard venipuncture. Clot sample for 30 minutes, centrifuge and separate serum. Fasting not mandatory.',
+    clinicalSignificance: 'Primary serum tumor marker for monitoring treatment response, progression, and recurrence in non-mucinous epithelial ovarian carcinoma. May be elevated in benign conditions (endometriosis, PID, pregnancy).',
+    parameters: [
+      { id: 'p-ca125-val', name: 'Cancer Antigen 125 (CA 125)', unit: 'U/mL', refRangeMin: 0.0, refRangeMax: 35.0, refRangeText: '< 35.0 U/mL (Normal Adult Females) | Elevated in epithelial ovarian carcinomas, endometriosis, PID, and pregnancy', method: 'Electrochemiluminescence Immunoassay (ECLIA)', criticalHigh: 100.0 },
+      { id: 'p-ca125-interp', name: 'CA 125 Clinical Interpretation', unit: '', refRangeText: 'Normal (< 35.0 U/mL) | Serial monitoring recommended for response to therapy or recurrence in ovarian neoplasms', method: 'Oncology Reference Guidelines' },
+    ],
+  },
+
+  // 60. CA 15.3
+  {
+    id: 'tmpl-ca153-60',
+    testCode: 'CA153-60',
+    testName: 'CA 15.3',
+    category: 'Immunology',
+    sampleType: 'Serum (SST Gold Top 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1100,
+    tatHours: 4,
+    description: 'Quantitative electrochemiluminescent measurement of Cancer Antigen 15-3 (CA 15-3) in serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum promptly.',
+    clinicalSignificance: 'Serum marker used primarily for monitoring clinical course, therapeutic efficacy, and post-operative recurrence in metastatic breast carcinoma. Not recommended as a primary screening test for early breast cancer.',
+    parameters: [
+      { id: 'p-ca153-val', name: 'Cancer Antigen 15-3 (CA 15-3)', unit: 'U/mL', refRangeMin: 0.0, refRangeMax: 30.0, refRangeText: '< 30.0 U/mL (Normal Reference Limit) | Primary utility in monitoring response and recurrence in metastatic breast cancer', method: 'Electrochemiluminescence Immunoassay (ECLIA)', criticalHigh: 100.0 },
+      { id: 'p-ca153-interp', name: 'CA 15-3 Clinical Interpretation', unit: '', refRangeText: 'Normal (< 30.0 U/mL) | Values must be interpreted in conjunction with clinical and radiological findings', method: 'Oncology Reference Guidelines' },
+    ],
+  },
+
+  // 61. CA 19.9
+  {
+    id: 'tmpl-ca199-61',
+    testCode: 'CA199-61',
+    testName: 'CA 19.9',
+    category: 'Immunology',
+    sampleType: 'Serum (SST Gold Top 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1100,
+    tatHours: 4,
+    description: 'Quantitative electrochemiluminescent measurement of Cancer Antigen 19-9 (CA 19-9 / Sialyl Lewis-a) in serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum promptly. Avoid hemolyzed specimens.',
+    clinicalSignificance: 'Primary serum biomarker for clinical management of pancreatic adenocarcinoma and cholangiocarcinoma. Also elevated in gastric, colorectal, and biliary tract neoplasms. Note: Individuals who are Lewis blood group negative (Le[a-b-]) do not express CA 19-9.',
+    parameters: [
+      { id: 'p-ca199-val', name: 'Cancer Antigen 19-9 (CA 19-9)', unit: 'U/mL', refRangeMin: 0.0, refRangeMax: 37.0, refRangeText: '< 37.0 U/mL (Normal Limit) | Primary marker for pancreatic adenocarcinoma, cholangiocarcinoma, and GI malignancies', method: 'Electrochemiluminescence Immunoassay (ECLIA)', criticalHigh: 120.0 },
+      { id: 'p-ca199-interp', name: 'CA 19-9 Clinical Interpretation', unit: '', refRangeText: 'Normal (< 37.0 U/mL) | Non-expressors (Lewis blood group negative Le[a-b-]) will not synthesize CA 19-9', method: 'Oncology Reference Guidelines' },
+    ],
+  },
+
+  // 62. Calcium
+  {
+    id: 'tmpl-calcium-62',
+    testCode: 'CALCIUM-62',
+    testName: 'Calcium',
+    category: 'Biochemistry',
+    sampleType: 'Serum (Yellow Top Gel SST 2 ml - Fasting Preferred)',
+    sampleTubeColor: 'amber',
+    price: 180,
+    tatHours: 2,
+    description: 'Direct photometric measurement of total serum calcium.',
+    specimenPrep: 'Fasting specimen preferred. Avoid prolonged tourniquet application to prevent hemoconcentration. Separate serum within 2 hours.',
+    clinicalSignificance: 'Essential diagnostic parameter in parathyroid disorders (hyperparathyroidism, hypoparathyroidism), bone diseases, granulomatous disorders, vitamin D disorders, chronic renal disease, and malignancy-associated hypercalcemia.',
+    parameters: [
+      { id: 'p-calc-tot', name: 'Total Calcium', unit: 'mg/dL', refRangeMin: 8.5, refRangeMax: 10.5, refRangeText: '8.5 - 10.5 mg/dL (Adults) | Children: 8.8 - 10.8 mg/dL (Total Calcium; does not replace Ionized Calcium)', method: 'Arsenazo III Colorimetric Photometric', criticalLow: 6.5, criticalHigh: 13.0 },
+    ],
+  },
+
+  // 63. CEA
+  {
+    id: 'tmpl-cea-63',
+    testCode: 'CEA-63',
+    testName: 'CEA',
+    category: 'Immunology',
+    sampleType: 'Serum (SST Gold Top 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 850,
+    tatHours: 4,
+    description: 'Quantitative electrochemiluminescent measurement of Carcinoembryonic Antigen (CEA) in human serum.',
+    specimenPrep: 'Standard venipuncture. Record patient smoking history on requisition as reference intervals vary.',
+    clinicalSignificance: 'Key oncological tumor marker for pre-operative baseline assessment and post-surgical surveillance of colorectal carcinoma. Also elevated in carcinomas of lung, breast, pancreas, and gastrointestinal tract.',
+    parameters: [
+      { id: 'p-cea-val', name: 'Carcinoembryonic Antigen (CEA)', unit: 'ng/mL', refRangeMin: 0.0, refRangeMax: 3.0, refRangeText: 'Non-Smokers: < 3.0 ng/mL | Smokers: < 5.0 ng/mL | > 10.0 ng/mL strongly suggests underlying malignancy', method: 'Electrochemiluminescence Immunoassay (ECLIA)', criticalHigh: 20.0 },
+      { id: 'p-cea-interp', name: 'CEA Smoking Status & Clinical Interpretation', unit: '', refRangeText: 'Non-smokers: < 3.0 ng/mL; Smokers: < 5.0 ng/mL. Marker of choice for post-surgical follow-up of colorectal carcinoma.', method: 'Clinical Oncology Guidelines' },
+    ],
+  },
+
+  // 64. Cardiolipin - IgG Antibody, Serum
+  {
+    id: 'tmpl-acl-igg-64',
+    testCode: 'ACL-IGG-64',
+    testName: 'Cardiolipin - IgG Antibody, Serum',
+    category: 'Immunology',
+    sampleType: 'Serum (Plain Clot / Gel SST 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1100,
+    tatHours: 24,
+    description: 'Quantitative determination of IgG autoantibodies against cardiolipin (anti-cardiolipin IgG) in human serum.',
+    specimenPrep: 'Standard venipuncture. Centrifuge and separate serum promptly within 2 hours. Avoid gross lipemia.',
+    clinicalSignificance: 'Consensus laboratory criterion for Antiphospholipid Syndrome (APS). Moderate-to-high titers (> 40 GPL or > 99th percentile) persisting for at least 12 weeks indicate high clinical risk of recurrent venous/arterial thrombosis and pregnancy morbidity.',
+    parameters: [
+      { id: 'p-acl-igg-val', name: 'Cardiolipin IgG Antibody', unit: 'GPL-U/mL', refRangeMin: 0.0, refRangeMax: 12.0, refRangeText: '< 12.0 (Negative) | 12.0 - 20.0 (Low Positive / Equivocal) | 20.0 - 80.0 (Moderate Positive) | > 80.0 (High Positive)', method: 'Enzyme-Linked Immunosorbent Assay (ELISA) / CLIA' },
+      { id: 'p-acl-igg-interp', name: 'Cardiolipin IgG Clinical Interpretation', unit: '', refRangeText: 'Negative (< 12.0 GPL-U/mL). Moderate-to-high titers on two occasions >= 12 weeks apart meet laboratory criteria for APS.', method: 'Sydney APS International Consensus' },
+    ],
+  },
+
+  // 65. Cardiolipin - IgM Antibody, Serum
+  {
+    id: 'tmpl-acl-igm-65',
+    testCode: 'ACL-IGM-65',
+    testName: 'Cardiolipin - IgM Antibody, Serum',
+    category: 'Immunology',
+    sampleType: 'Serum (Plain Clot / Gel SST 3 ml)',
+    sampleTubeColor: 'amber',
+    price: 1100,
+    tatHours: 24,
+    description: 'Quantitative determination of IgM autoantibodies against cardiolipin (anti-cardiolipin IgM) in human serum.',
+    specimenPrep: 'Standard venipuncture. Separate serum promptly. Avoid repeated freeze-thaw cycles.',
+    clinicalSignificance: 'Consensus laboratory criterion for Antiphospholipid Syndrome (APS). Evaluation of unexplained thrombotic episodes, hemolytic anemia, and recurrent fetal loss. Persistence after 12 weeks is required.',
+    parameters: [
+      { id: 'p-acl-igm-val', name: 'Cardiolipin IgM Antibody', unit: 'MPL-U/mL', refRangeMin: 0.0, refRangeMax: 12.0, refRangeText: '< 12.0 (Negative) | 12.0 - 20.0 (Low Positive / Equivocal) | 20.0 - 80.0 (Moderate Positive) | > 80.0 (High Positive)', method: 'Enzyme-Linked Immunosorbent Assay (ELISA) / CLIA' },
+      { id: 'p-acl-igm-interp', name: 'Cardiolipin IgM Clinical Interpretation', unit: '', refRangeText: 'Negative (< 12.0 MPL-U/mL). Confirmatory re-testing after 12 weeks advised if clinically indicated.', method: 'Sydney APS International Consensus' },
+    ],
+  },
+  ...ADDITIONAL_TEST_TEMPLATES,
+  ...BATCH2_TEST_TEMPLATES,
 ];
 
 export const INITIAL_PATHOLOGY_PATIENTS: PathologyPatient[] = [

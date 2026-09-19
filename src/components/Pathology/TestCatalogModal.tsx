@@ -37,9 +37,12 @@ export const TestCatalogModal: React.FC<TestCatalogModalProps> = ({
     'All',
     'Hematology',
     'Biochemistry',
+    'Microbiology',
+    'Molecular Diagnostics',
     'Endocrinology',
     'Infectious Diseases',
-    'Serology/Immunology',
+    'Serology',
+    'Immunology',
     'Coagulation',
     'Clinical Pathology',
   ];

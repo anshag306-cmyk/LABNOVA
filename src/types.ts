@@ -334,7 +334,9 @@ export type PathologyCategory =
   | 'Endocrinology'
   | 'Microbiology'
   | 'Infectious Diseases'
-  | 'Coagulation';
+  | 'Coagulation'
+  | 'Molecular Diagnostics'
+  | 'Histopathology';
 
 export type LetterheadTemplateId =
   | 'classic_medical'
@@ -493,8 +495,22 @@ export interface PathologyReport {
   verifiedAt?: string;
   digitalSignatureHash?: string;
   billing: ReportBilling;
+  reportPublicToken?: string; // Cryptographically secure random token for online QR report access
+  reportPublicUrl?: string; // Full browser URL for online access
+  qrCodeData?: string; // Base64 data URL for fast QR display
+  isPublished?: boolean; // Admin toggle: true = ON (accessible), false = OFF (disabled)
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PublicReportPayload {
+  token: string;
+  reportId: string;
+  isPublished: boolean;
+  status: ReportStatus;
+  report: PathologyReport;
+  lab?: Partial<Laboratory & LabSettings>;
+  publishedAt?: string;
 }
 
 export interface PathologyStats {

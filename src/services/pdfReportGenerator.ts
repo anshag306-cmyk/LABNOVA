@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import { PathologyReport, LabSettings, PrePrintedLetterheadConfig, DigitalLetterheadConfig } from '../types';
-import { DEFAULT_LAB_SETTINGS } from '../data/pathologyTemplates';
+import { PathologyReport, LabSettings, PrePrintedLetterheadConfig, DigitalLetterheadConfig, ReportParameterResult } from '../types';
+import { DEFAULT_LAB_SETTINGS, DEFAULT_TEST_TEMPLATES } from '../data/pathologyTemplates';
 import { DEFAULT_PREPRINTED_CONFIG, getDigitalConfig, getPrePrintedConfig } from './prePrintedConfig';
 import { getLetterheadTemplateById } from '../data/letterheadTemplatesData';
 
@@ -89,10 +89,12 @@ function formatMedicalDateTime(isoString?: string | null): string {
  *  - Dual digital signature verification blocks for Lab Technologist and Consultant Pathologist.
  */
 export function generatePathologyPdf(
-  report: PathologyReport,
+  reportOrReports: PathologyReport | PathologyReport[],
   customSettings?: LabSettings,
   customConfig?: Partial<DigitalLetterheadConfig>
 ) {
+  const report = Array.isArray(reportOrReports) ? reportOrReports[0] : reportOrReports;
+  const multiReports = Array.isArray(reportOrReports) && reportOrReports.length > 1 ? reportOrReports : null;
   const settings = customSettings || DEFAULT_LAB_SETTINGS;
   const savedDigitalConfig = getDigitalConfig();
   const config: DigitalLetterheadConfig = {
@@ -404,7 +406,7 @@ export function generatePathologyPdf(
   /**
    * Draws the test modality banner (Test Name, Department, Specimen).
    */
-  const drawTestBanner = () => {
+  const drawTestBanner = (customTitle?: string, customMeta?: string) => {
     doc.setFillColor(241, 245, 249);
     doc.rect(effLeft, y, printableWidth, 8, 'F');
     doc.setDrawColor(203, 213, 225);
@@ -413,14 +415,14 @@ export function generatePathologyPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
-    const testTitle = report.testNames.join(' & ') || 'Clinical Laboratory Investigation';
+    const testTitle = customTitle || report.testNames.join(' & ') || 'Clinical Laboratory Investigation';
     doc.text(testTitle, effLeft + 4, y + 5.5);
 
     if (config.showDepartmentMethod ?? true) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
-      const specimen = `Department: Clinical Pathology | Method: Automated Analyzer`;
+      const specimen = customMeta || `Department: Clinical Pathology | Method: Automated Analyzer`;
       doc.text(specimen, pageWidth - effRight - doc.getTextWidth(specimen) - 4, y + 5.5);
     }
 
@@ -478,12 +480,15 @@ export function generatePathologyPdf(
         doc.text('Daily Sign / QC In-Charge', effLeft + 4, footerY + 14.5);
       }
 
-      // Center: Digital Signature Stamp & Real Scannable QR Matrix
+      // Center: Digital Signature Stamp & Real Scannable Patient-Level QR Matrix
       if (showQr) {
         const qrX = pageWidth / 2 - 22;
         const qrY = footerY + 2.0;
         const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://labnova.com';
-        const verificationUrl = `${originUrl}?verify=${encodeURIComponent(report.reportId || report.id)}`;
+        // Secure patient-level token without exposing sensitive raw clinical or personal data in QR
+        const patientRawKey = `PLR_${report.patientUHID || report.patientId || report.reportId}_${(report.sampleCollectedAt || report.reportDate || '').slice(0, 10)}`;
+        const patientToken = btoa(patientRawKey).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const verificationUrl = `${originUrl}?patientRecord=${encodeURIComponent(patientToken)}&ref=${encodeURIComponent(report.reportId || report.id)}`;
         drawRealQrCode(doc, verificationUrl, qrX, qrY, 13);
 
         doc.setFont('helvetica', 'bold');
@@ -495,7 +500,7 @@ export function generatePathologyPdf(
         doc.setTextColor(100, 116, 139);
         const hash = (report.digitalSignatureHash || 'e7c10b4f8a92e1069d35fa7c844bf210').slice(0, 24);
         doc.text(`Hash: ${hash}...`, qrX + 16, footerY + 9.5);
-        doc.text('Scan QR to verify live NABL authenticity', qrX + 16, footerY + 13.5);
+        doc.text('Scan QR to verify live patient record', qrX + 16, footerY + 13.5);
       }
 
       // Right: Consultant Pathologist (Verified By)
@@ -526,178 +531,358 @@ export function generatePathologyPdf(
   };
 
   // -------------------------------------------------------------
-  // BUILD REPORT FLOW (PAGE 1)
+  // BUILD REPORT FLOW (MULTI-TEST & SINGLE-TEST MODALITY)
   // -------------------------------------------------------------
-  drawPage1Header();
-  drawPatientDetailsCard();
-  drawTestBanner();
-  drawTableHeader();
-
-  // Draw Result Rows with auto multi-page wrapping and 2-line wrapped test names
-  const results = report.results || [];
-  let currentCategory = '';
-
-  results.forEach((res, index) => {
-    // Wrap long test investigation names into two clean lines if needed
-    const testNameMaxWidth = col1Width - 3;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(testNameFontSize);
-    const splitTestName: string[] = doc.splitTextToSize(res.name, testNameMaxWidth);
-    const isMultiLine = splitTestName.length > 1;
-
-    const refRangeMaxWidth = col5Width - 3;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(refRangeFontSize);
-    const splitRefRange: string[] = doc.splitTextToSize(res.refRangeText || '-', refRangeMaxWidth);
-
-    const maxLines = Math.max(splitTestName.length, splitRefRange.length);
-    const rowHeight = maxLines > 1 ? Math.max(8.5, lineSpacingMm * maxLines + baseFontSize * 0.38) : singleRowHeight;
-
-    // Check if we need a page break before this row
-    const showAnySign = (config.showDailySign ?? true) || (config.showVerified ?? true) || (config.showDigitalSignatureQr ?? true);
-    const signatureReserve = showAnySign ? 44 : 16;
-    if (y + rowHeight > pageHeight - signatureReserve) {
-      doc.addPage();
-      y = effTop;
-      drawContinuationHeader(doc.getNumberOfPages());
-      drawTableHeader();
-    }
-
-    // Category heading if present and changed
-    if ((config.showCategoryHeaders ?? true) && res.category && res.category !== currentCategory) {
-      currentCategory = res.category;
-      const catHeight = Math.max(5.8, baseFontSize * 0.65);
-      doc.setFillColor(248, 250, 252);
-      doc.rect(effLeft, y, printableWidth, catHeight, 'F');
-      doc.setDrawColor(203, 213, 225);
-      doc.setLineWidth(0.2);
-      doc.line(effLeft, y + catHeight, effLeft + printableWidth, y + catHeight);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(catFontSize);
-      doc.setTextColor(30, 58, 138); // Blue-900
-      doc.text(`[ ${currentCategory.toUpperCase()} ]`, effLeft + 3, y + catHeight * 0.7);
-      y += catHeight + 1.6;
-    }
-
-    // Alternate subtle row shading
-    if (index % 2 === 1) {
-      doc.setFillColor(252, 253, 255);
-      doc.rect(effLeft, y, printableWidth, rowHeight, 'F');
-    }
-
-    const baselineY = y + Math.max(4.2, baseFontSize * 0.50);
-    const firstLineY = y + Math.max(3.8, baseFontSize * 0.44);
-
-    // 1. Investigation Parameter Name (Wrapped onto 2 lines if long)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(testNameFontSize);
-    doc.setTextColor(15, 23, 42);
-    if (isMultiLine) {
-      splitTestName.forEach((line, lineIdx) => {
-        doc.text(line, tCol1, firstLineY + lineIdx * lineSpacingMm);
-      });
-    } else {
-      doc.text(res.name, tCol1, baselineY);
-    }
-
-    // 2. Result value with bolding and color coding for abnormal
-    const isAbnormal = res.status !== 'normal';
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(resultFontSize);
-    if (isAbnormal) {
-      if (res.status === 'critical') {
-        doc.setTextColor(220, 38, 38); // Red-600
-      } else if (res.status === 'high') {
-        doc.setTextColor(185, 28, 28); // Amber-700 / Red-700
-      } else {
-        doc.setTextColor(37, 99, 235); // Blue-600
-      }
-    } else {
-      doc.setTextColor(15, 23, 42);
-    }
-    doc.text(String(res.value), tCol2, baselineY);
-
-    // 3. Flag / Status Label
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(flagFontSize);
-    if (res.status === 'high') {
-      doc.setTextColor(185, 28, 28);
-      doc.text('▲ HIGH', tCol3, baselineY);
-    } else if (res.status === 'low') {
-      doc.setTextColor(37, 99, 235);
-      doc.text('▼ LOW', tCol3, baselineY);
-    } else if (res.status === 'critical') {
-      doc.setTextColor(220, 38, 38);
-      doc.text('🚨 CRITICAL', tCol3, baselineY);
-    } else {
-      doc.setTextColor(100, 116, 139);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Normal', tCol3, baselineY);
-    }
-
-    // 4. Units
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(unitFontSize);
-    doc.setTextColor(71, 85, 105);
-    doc.text(res.unit || '-', tCol4, baselineY);
-
-    // 5. Biological Reference Interval
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(refRangeFontSize);
-    doc.setTextColor(71, 85, 105);
-    if (splitRefRange.length > 1) {
-      splitRefRange.forEach((line, rIdx) => {
-        doc.text(line, tCol5, firstLineY + rIdx * lineSpacingMm);
-      });
-    } else {
-      doc.text(res.refRangeText || '-', tCol5, baselineY);
-    }
-
-    // Row bottom separator line
-    doc.setDrawColor(241, 245, 249);
-    doc.line(effLeft, y + rowHeight, effLeft + printableWidth, y + rowHeight);
-
-    y += rowHeight + 0.8;
-  });
-
-  y += 3;
-
-  // -------------------------------------------------------------
-  // CLINICAL IMPRESSION & REMARKS
-  // -------------------------------------------------------------
-  if ((config.showClinicalImpression ?? true) && (report.clinicalNotes || report.interpretation)) {
-    const showAnySign = (config.showDailySign ?? true) || (config.showVerified ?? true) || (config.showDigitalSignatureQr ?? true);
-    const reserveBottom = showAnySign ? 50 : 25;
-    if (y > pageHeight - reserveBottom) {
-      doc.addPage();
-      y = effTop;
-      drawContinuationHeader(doc.getNumberOfPages());
-    }
-
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(effLeft, y, printableWidth, 18, 1.5, 1.5, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text('CLINICAL IMPRESSION & PATHOLOGIST ADVICE:', effLeft + 4, y + 4.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(71, 85, 105);
-    const combinedNotes = `${report.clinicalNotes ? 'Findings: ' + report.clinicalNotes : ''} ${
-      report.interpretation ? '| Interpretation: ' + report.interpretation : ''
-    }`;
-    const splitNotes = doc.splitTextToSize(combinedNotes, printableWidth - 8);
-    doc.text(splitNotes, effLeft + 4, y + 9);
-
-    y += 22;
+  interface TestBlock {
+    title: string;
+    department: string;
+    results: ReportParameterResult[];
   }
 
-  // Draw Signatures Footer on the final page
-  drawSignaturesFooter();
+  const testBlocks: TestBlock[] = [];
+
+  if (multiReports && multiReports.length > 1) {
+    multiReports.forEach((rep) => {
+      testBlocks.push({
+        title: rep.testNames.join(' & ') || rep.reportId,
+        department: 'Clinical Pathology',
+        results: rep.results || [],
+      });
+    });
+  } else if (report.testCodes && report.testCodes.length > 1) {
+    const codeMap: Record<string, TestBlock> = {};
+    report.testCodes.forEach((code, idx) => {
+      const tmpl = DEFAULT_TEST_TEMPLATES.find((t) => t.testCode === code);
+      const name = tmpl?.testName || report.testNames[idx] || code;
+      const dept = tmpl?.category || 'Clinical Pathology';
+      codeMap[code] = {
+        title: name,
+        department: dept,
+        results: [],
+      };
+    });
+
+    (report.results || []).forEach((res) => {
+      let matchedCode: string | null = null;
+      for (const code of report.testCodes) {
+        const tmpl = DEFAULT_TEST_TEMPLATES.find((t) => t.testCode === code);
+        if (
+          tmpl &&
+          tmpl.parameters.some(
+            (p) => p.id === res.parameterId || p.name.toLowerCase() === res.name.toLowerCase()
+          )
+        ) {
+          matchedCode = code;
+          break;
+        }
+      }
+      if (matchedCode && codeMap[matchedCode]) {
+        codeMap[matchedCode].results.push(res);
+      } else {
+        let foundByCat = false;
+        for (const code of report.testCodes) {
+          const tmpl = DEFAULT_TEST_TEMPLATES.find((t) => t.testCode === code);
+          if (tmpl && res.category && tmpl.category.toLowerCase().includes(res.category.toLowerCase())) {
+            codeMap[code].results.push(res);
+            foundByCat = true;
+            break;
+          }
+        }
+        if (!foundByCat) {
+          const firstKey = report.testCodes[0];
+          if (codeMap[firstKey]) {
+            codeMap[firstKey].results.push(res);
+          }
+        }
+      }
+    });
+
+    report.testCodes.forEach((code) => {
+      if (codeMap[code] && codeMap[code].results.length > 0) {
+        testBlocks.push(codeMap[code]);
+      }
+    });
+
+    if (testBlocks.length === 0) {
+      report.testCodes.forEach((code, idx) => {
+        const tmpl = DEFAULT_TEST_TEMPLATES.find((t) => t.testCode === code);
+        testBlocks.push({
+          title: tmpl?.testName || report.testNames[idx] || code,
+          department: tmpl?.category || 'Clinical Pathology',
+          results: [],
+        });
+      });
+    }
+  } else {
+    testBlocks.push({
+      title: report.testNames.join(' & ') || 'Clinical Laboratory Investigation',
+      department: 'Clinical Pathology',
+      results: report.results || [],
+    });
+  }
+
+  testBlocks.forEach((block, blockIdx) => {
+    if (blockIdx > 0) {
+      doc.addPage();
+      y = effTop;
+    }
+
+    drawPage1Header();
+    drawPatientDetailsCard();
+
+    const isHistopathology =
+      block.department === 'Histopathology' ||
+      block.title.toLowerCase().includes('biopsy') ||
+      block.results.some((r) => r.category === 'Histopathology');
+
+    if (isHistopathology) {
+      drawTestBanner(
+        block.title,
+        `Department: Histopathology & Surgical Pathology | Method: Light Microscopy (H&E Staining)`
+      );
+
+      // Section Banner
+      doc.setFillColor(241, 245, 249);
+      doc.rect(effLeft, y, printableWidth, 6.5, 'F');
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
+      doc.rect(effLeft, y, printableWidth, 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 58, 138);
+      doc.text('SURGICAL PATHOLOGY & HISTOPATHOLOGICAL EXAMINATION', effLeft + 3, y + 4.5);
+      y += 9;
+
+      const showAnySign =
+        (config.showDailySign ?? true) ||
+        (config.showVerified ?? true) ||
+        (config.showDigitalSignatureQr ?? true);
+      const signatureReserve = showAnySign ? 44 : 16;
+
+      block.results.forEach((res) => {
+        const textVal = (res.value || '').trim();
+        const isDiagnosis = res.name.toLowerCase().includes('diagnosis');
+
+        // Check if page break is needed before section
+        if (y + 16 > pageHeight - signatureReserve) {
+          doc.addPage();
+          y = effTop;
+          drawContinuationHeader(doc.getNumberOfPages());
+        }
+
+        // Section Title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isDiagnosis ? 9.5 : 8.5);
+        if (isDiagnosis) {
+          doc.setTextColor(185, 28, 28);
+        } else {
+          doc.setTextColor(15, 23, 42);
+        }
+        doc.text(`▶  ${res.name.toUpperCase()}`, effLeft + 2, y + 3);
+        y += 5;
+
+        // Content
+        const contentWidth = printableWidth - 8;
+        doc.setFont('helvetica', isDiagnosis ? 'bold' : 'normal');
+        doc.setFontSize(isDiagnosis ? 9.5 : 8.5);
+        doc.setTextColor(15, 23, 42);
+
+        const splitLines: string[] = doc.splitTextToSize(
+          textVal || 'Awaiting clinical / histological entry.',
+          contentWidth
+        );
+        const blockHeight = splitLines.length * 4.2 + (isDiagnosis ? 4 : 2);
+
+        if (isDiagnosis) {
+          doc.setFillColor(254, 242, 242);
+          doc.setDrawColor(248, 113, 113);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(effLeft, y - 1, printableWidth, blockHeight + 2, 1.5, 1.5, 'FD');
+          doc.setTextColor(153, 27, 27);
+          splitLines.forEach((line: string, lIdx: number) => {
+            doc.text(line, effLeft + 4, y + 3.5 + lIdx * 4.2);
+          });
+          y += blockHeight + 5;
+        } else {
+          splitLines.forEach((line: string) => {
+            if (y + 5 > pageHeight - signatureReserve) {
+              doc.addPage();
+              y = effTop;
+              drawContinuationHeader(doc.getNumberOfPages());
+            }
+            doc.text(line, effLeft + 4, y + 3);
+            y += 4.2;
+          });
+          y += 3;
+        }
+      });
+    } else {
+      drawTestBanner(block.title, `Department: ${block.department} | Method: Automated Analyzer`);
+      drawTableHeader();
+
+      let currentCategory = '';
+      block.results.forEach((res, index) => {
+      // Wrap long test investigation names into two clean lines if needed
+      const testNameMaxWidth = col1Width - 3;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(testNameFontSize);
+      const splitTestName: string[] = doc.splitTextToSize(res.name, testNameMaxWidth);
+      const isMultiLine = splitTestName.length > 1;
+
+      const refRangeMaxWidth = col5Width - 3;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(refRangeFontSize);
+      const splitRefRange: string[] = doc.splitTextToSize(res.refRangeText || '-', refRangeMaxWidth);
+
+      const maxLines = Math.max(splitTestName.length, splitRefRange.length);
+      const rowHeight = maxLines > 1 ? Math.max(8.5, lineSpacingMm * maxLines + baseFontSize * 0.38) : singleRowHeight;
+
+      // Check if we need a page break before this row
+      const showAnySign = (config.showDailySign ?? true) || (config.showVerified ?? true) || (config.showDigitalSignatureQr ?? true);
+      const signatureReserve = showAnySign ? 44 : 16;
+      if (y + rowHeight > pageHeight - signatureReserve) {
+        doc.addPage();
+        y = effTop;
+        drawContinuationHeader(doc.getNumberOfPages());
+        drawTableHeader();
+      }
+
+      // Category heading if present and changed
+      if ((config.showCategoryHeaders ?? true) && res.category && res.category !== currentCategory) {
+        currentCategory = res.category;
+        const catHeight = Math.max(5.8, baseFontSize * 0.65);
+        doc.setFillColor(248, 250, 252);
+        doc.rect(effLeft, y, printableWidth, catHeight, 'F');
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.2);
+        doc.line(effLeft, y + catHeight, effLeft + printableWidth, y + catHeight);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(catFontSize);
+        doc.setTextColor(30, 58, 138); // Blue-900
+        doc.text(`[ ${currentCategory.toUpperCase()} ]`, effLeft + 3, y + catHeight * 0.7);
+        y += catHeight + 1.6;
+      }
+
+      // Alternate subtle row shading
+      if (index % 2 === 1) {
+        doc.setFillColor(252, 253, 255);
+        doc.rect(effLeft, y, printableWidth, rowHeight, 'F');
+      }
+
+      const baselineY = y + Math.max(4.2, baseFontSize * 0.50);
+      const firstLineY = y + Math.max(3.8, baseFontSize * 0.44);
+
+      // 1. Investigation Parameter Name (Wrapped onto 2 lines if long)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(testNameFontSize);
+      doc.setTextColor(15, 23, 42);
+      if (isMultiLine) {
+        splitTestName.forEach((line, lineIdx) => {
+          doc.text(line, tCol1, firstLineY + lineIdx * lineSpacingMm);
+        });
+      } else {
+        doc.text(res.name, tCol1, baselineY);
+      }
+
+      // 2. Result value with bolding and color coding for abnormal
+      const isAbnormal = res.status !== 'normal';
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(resultFontSize);
+      if (isAbnormal) {
+        if (res.status === 'critical') {
+          doc.setTextColor(220, 38, 38); // Red-600
+        } else if (res.status === 'high') {
+          doc.setTextColor(185, 28, 28); // Amber-700 / Red-700
+        } else {
+          doc.setTextColor(37, 99, 235); // Blue-600
+        }
+      } else {
+        doc.setTextColor(15, 23, 42);
+      }
+      doc.text(String(res.value), tCol2, baselineY);
+
+      // 3. Flag / Status Label
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(flagFontSize);
+      if (res.status === 'high') {
+        doc.setTextColor(185, 28, 28);
+        doc.text('▲ HIGH', tCol3, baselineY);
+      } else if (res.status === 'low') {
+        doc.setTextColor(37, 99, 235);
+        doc.text('▼ LOW', tCol3, baselineY);
+      } else if (res.status === 'critical') {
+        doc.setTextColor(220, 38, 38);
+        doc.text('🚨 CRITICAL', tCol3, baselineY);
+      } else {
+        doc.setTextColor(100, 116, 139);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Normal', tCol3, baselineY);
+      }
+
+      // 4. Units
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(unitFontSize);
+      doc.setTextColor(71, 85, 105);
+      doc.text(res.unit || '-', tCol4, baselineY);
+
+      // 5. Biological Reference Interval
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(refRangeFontSize);
+      doc.setTextColor(71, 85, 105);
+      if (splitRefRange.length > 1) {
+        splitRefRange.forEach((line, rIdx) => {
+          doc.text(line, tCol5, firstLineY + rIdx * lineSpacingMm);
+        });
+      } else {
+        doc.text(res.refRangeText || '-', tCol5, baselineY);
+      }
+
+      // Row bottom separator line
+      doc.setDrawColor(241, 245, 249);
+      doc.line(effLeft, y + rowHeight, effLeft + printableWidth, y + rowHeight);
+
+      y += rowHeight + 0.8;
+    });
+    }
+
+    y += 3;
+
+    // Clinical Impression & Remarks (on the final test or if present)
+    const isFinalBlock = blockIdx === testBlocks.length - 1;
+    if (isFinalBlock && (config.showClinicalImpression ?? true) && (report.clinicalNotes || report.interpretation)) {
+      const showAnySign = (config.showDailySign ?? true) || (config.showVerified ?? true) || (config.showDigitalSignatureQr ?? true);
+      const reserveBottom = showAnySign ? 50 : 25;
+      if (y > pageHeight - reserveBottom) {
+        doc.addPage();
+        y = effTop;
+        drawContinuationHeader(doc.getNumberOfPages());
+      }
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(effLeft, y, printableWidth, 18, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text('CLINICAL IMPRESSION & PATHOLOGIST ADVICE:', effLeft + 4, y + 4.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      const combinedNotes = `${report.clinicalNotes ? 'Findings: ' + report.clinicalNotes : ''} ${
+        report.interpretation ? '| Interpretation: ' + report.interpretation : ''
+      }`;
+      const splitNotes = doc.splitTextToSize(combinedNotes, printableWidth - 8);
+      doc.text(splitNotes, effLeft + 4, y + 9);
+
+      y += 22;
+    }
+
+    // Draw Signatures Footer on each test page
+    drawSignaturesFooter();
+  });
 
   // -------------------------------------------------------------
   // UNIVERSAL "PAGE X OF Y" NUMBERING ACROSS ALL PAGES
@@ -1236,12 +1421,91 @@ export function generatePrePrintedPathologyPdf(
   // -------------------------------------------------------------
   drawPrePrintedPatientCard();
   drawPrePrintedModeBanner();
-  drawPrePrintedTableHeader();
 
   const results = report.results || [];
-  let currentCategory = '';
+  const isPrePrintedHistopathology =
+    (report.testNames || []).some((t) => t.toLowerCase().includes('biopsy')) ||
+    results.some((r) => r.category === 'Histopathology');
 
-  results.forEach((res, index) => {
+  if (isPrePrintedHistopathology) {
+    // Section Banner for Pre-printed Stationery
+    doc.setFillColor(241, 245, 249);
+    doc.rect(effLeft, y, printableWidth, 6.5, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.25);
+    doc.rect(effLeft, y, printableWidth, 6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 58, 138);
+    doc.text('SURGICAL PATHOLOGY & HISTOPATHOLOGICAL EXAMINATION', effLeft + 3, y + 4.5);
+    y += 9;
+
+    const showAnySign =
+      (config.showDailySign ?? true) ||
+      (config.showVerified ?? true) ||
+      (config.showDigitalSignatureQr ?? true);
+    const signatureReserve = config.includeSignatures && showAnySign ? 36 : 16;
+
+    results.forEach((res) => {
+      const textVal = (res.value || '').trim();
+      const isDiagnosis = res.name.toLowerCase().includes('diagnosis');
+
+      if (y + 16 > pageHeight - effBottom - signatureReserve) {
+        doc.addPage();
+        y = effTopPageCont;
+        drawPrePrintedContinuationHeader(doc.getNumberOfPages());
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isDiagnosis ? 9.5 : 8.5);
+      if (isDiagnosis) {
+        doc.setTextColor(185, 28, 28);
+      } else {
+        doc.setTextColor(15, 23, 42);
+      }
+      doc.text(`▶  ${res.name.toUpperCase()}`, effLeft + 2, y + 3);
+      y += 5;
+
+      const contentWidth = printableWidth - 8;
+      doc.setFont('helvetica', isDiagnosis ? 'bold' : 'normal');
+      doc.setFontSize(isDiagnosis ? 9.5 : 8.5);
+      doc.setTextColor(15, 23, 42);
+
+      const splitLines: string[] = doc.splitTextToSize(
+        textVal || 'Awaiting clinical / histological entry.',
+        contentWidth
+      );
+      const blockHeight = splitLines.length * 4.2 + (isDiagnosis ? 4 : 2);
+
+      if (isDiagnosis) {
+        doc.setFillColor(254, 242, 242);
+        doc.setDrawColor(248, 113, 113);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(effLeft, y - 1, printableWidth, blockHeight + 2, 1.5, 1.5, 'FD');
+        doc.setTextColor(153, 27, 27);
+        splitLines.forEach((line: string, lIdx: number) => {
+          doc.text(line, effLeft + 4, y + 3.5 + lIdx * 4.2);
+        });
+        y += blockHeight + 5;
+      } else {
+        splitLines.forEach((line: string) => {
+          if (y + 5 > pageHeight - effBottom - signatureReserve) {
+            doc.addPage();
+            y = effTopPageCont;
+            drawPrePrintedContinuationHeader(doc.getNumberOfPages());
+          }
+          doc.text(line, effLeft + 4, y + 3);
+          y += 4.2;
+        });
+        y += 3;
+      }
+    });
+  } else {
+    drawPrePrintedTableHeader();
+
+    let currentCategory = '';
+
+    results.forEach((res, index) => {
     // Wrap long test investigation names into two clean lines if needed
     const testNameMaxWidth = col1Width - 3; // e.g. ~71mm on standard margins
     doc.setFont('helvetica', 'bold');
@@ -1367,6 +1631,7 @@ export function generatePrePrintedPathologyPdf(
 
     y += rowHeight;
   });
+  }
 
   y += 3;
 

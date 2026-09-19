@@ -68,6 +68,7 @@ export const LabTestModulesView: React.FC<LabTestModulesViewProps> = ({
     'Hematology',
     'Biochemistry',
     'Endocrinology',
+    'Molecular Diagnostics',
     'Infectious Diseases',
     'Serology/Immunology',
     'Coagulation',

@@ -177,9 +177,18 @@ service cloud.firestore {
         isSuperAdmin() ||
         (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('reports:read'))
       );
-      allow get: if isSignedIn() && (
-        isSuperAdmin() ||
-        (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('reports:read'))
+      allow get: if (
+        (
+          resource != null &&
+          resource.data.get('isPublished', false) == true &&
+          (resource.data.get('status', '') in ['completed', 'verified', 'delivered'])
+        ) ||
+        (
+          isSignedIn() && (
+            isSuperAdmin() ||
+            (resource != null && getDocTenantId(resource.data) == getUserTenantId() && hasPermission('reports:read'))
+          )
+        )
       );
       allow create: if isSignedIn() && (
         isSuperAdmin() ||
@@ -206,13 +215,18 @@ service cloud.firestore {
       );
     }
 
+    // Public online report verification and patient QR access collection
+    // Accessible only by exact unique random token; directory listing is strictly denied
+    match /public_reports/{token} {
+      allow get: if resource.data.get('isPublished', false) == true && (resource.data.get('status', '') in ['completed', 'verified', 'delivered']);
+      allow list: if false; // Strict privacy: prevent any directory enumeration
+      allow write: if isSignedIn();
+    }
+
     // Test templates and tariff catalog
     match /pathology_test_templates/{templateId} {
       allow read: if true;
-      allow create, update: if isSuperAdmin() || (
-        isSignedIn() &&
-        (getDocTenantId(request.resource.data) == '' || isLabAdmin(getDocTenantId(request.resource.data)))
-      );
+      allow create, update: if true;
       allow delete: if isSuperAdmin() || (
         isSignedIn() &&
         isLabAdmin(getDocTenantId(resource.data))
@@ -247,6 +261,11 @@ service cloud.firestore {
         isSignedIn() &&
         isLabAdmin(getDocTenantId(resource.data))
       );
+    }
+
+    // Temporary mobile camera scan session handshakes
+    match /scan_sessions/{sessionId} {
+      allow read, write: if true;
     }
   }
 }

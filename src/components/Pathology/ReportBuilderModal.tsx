@@ -10,6 +10,10 @@ import {
   Receipt,
   Sparkles,
   ShieldCheck,
+  Search,
+  Filter,
+  Check,
+  Microscope,
 } from 'lucide-react';
 import {
   PathologyPatient,
@@ -70,6 +74,10 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPI');
+
+  // Test Profile Search & Filter state
+  const [testSearchQuery, setTestSearchQuery] = useState('');
+  const [testCategoryFilter, setTestCategoryFilter] = useState<string>('All');
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,13 +160,20 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
           if (existing) {
             newResults.push(existing);
           } else {
-            // Provide a normal median default value for easy demonstration
-            const defaultValue = param.refRangeMin && param.refRangeMax
+            // Provide a normal median default value for numeric/routine tests.
+            // For Histopathology and Biopsy tests, do NOT invent pathology results; leave empty for operator/pathologist entry.
+            const isHistopathology = tmpl.category === 'Histopathology' || tmpl.testCode.startsWith('BIOPSY-');
+            const defaultValue = isHistopathology
+              ? ''
+              : param.refRangeMin !== undefined && param.refRangeMax !== undefined
               ? Number(((param.refRangeMin + param.refRangeMax) / 2).toFixed(1))
+              : param.refRangeText.includes('Not Detected') ? 'Not Detected'
+              : param.refRangeText.includes('Non-Reactive') ? 'Non-Reactive'
+              : param.refRangeText.includes('Negative') ? 'Negative'
+              : param.refRangeText.includes('Valid') ? 'Valid'
               : param.refRangeText.includes('Pale') ? 'Pale Yellow'
               : param.refRangeText.includes('Clear') ? 'Clear'
               : param.refRangeText.includes('Nil') ? 'Nil'
-              : param.refRangeText.includes('Negative') ? 'Negative'
               : '';
 
             newResults.push({
@@ -190,6 +205,11 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
       nextCodes = selectedTestCodes.filter((c) => c !== code);
     } else {
       nextCodes = [...selectedTestCodes, code];
+      // If adding test and current sample type is default or blank, auto-suggest the test's specimen type
+      const tmpl = templates.find((t) => t.testCode === code);
+      if (tmpl?.sampleType && (selectedTestCodes.length === 0 || sampleType === 'EDTA Whole Blood & Serum')) {
+        setSampleType(tmpl.sampleType);
+      }
     }
     setSelectedTestCodes(nextCodes);
     loadParametersForTests(nextCodes);
@@ -234,11 +254,81 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
       }
     } else {
       item.numericValue = undefined;
-      const lower = val.toLowerCase();
-      if (lower.includes('positive') || lower.includes('reactive') || lower.includes('detected')) {
+      const lower = val.toLowerCase().trim();
+      const isNegative =
+        lower.includes('not detected') ||
+        lower.includes('non-reactive') ||
+        lower.includes('negative') ||
+        lower.includes('nil') ||
+        lower.includes('clear') ||
+        lower.includes('valid') ||
+        lower.includes('normal') ||
+        lower === 'absent';
+
+      if (isNegative) {
+        item.status = 'normal';
+      } else if (
+        lower.includes('positive') ||
+        lower.includes('reactive') ||
+        lower.includes('detected') ||
+        lower.includes('present')
+      ) {
+        item.status = 'high';
+      } else if (
+        lower.includes('equivocal') ||
+        lower.includes('borderline') ||
+        lower.includes('indeterminate')
+      ) {
         item.status = 'high';
       } else {
         item.status = 'normal';
+      }
+    }
+
+    // Auto-calculate Transferrin Saturation (%) for Iron Deficiency Profile if Iron or TIBC changed
+    const lowerParamName = item.name.toLowerCase();
+    if (lowerParamName.includes('iron') || lowerParamName.includes('tibc') || lowerParamName.includes('binding')) {
+      const ironItem = updated.find((r) => r.name.toLowerCase() === 'serum iron' || r.name.toLowerCase() === 'iron');
+      const tibcItem = updated.find((r) => r.name.toLowerCase().includes('total iron binding') || r.name.toLowerCase() === 'tibc');
+      const tsatItem = updated.find((r) => r.name.toLowerCase().includes('transferrin saturation'));
+
+      if (ironItem && tibcItem && tsatItem) {
+        const ironNum = parseFloat(ironItem.value);
+        const tibcNum = parseFloat(tibcItem.value);
+        if (!isNaN(ironNum) && !isNaN(tibcNum) && tibcNum > 0) {
+          const sat = Number(((ironNum / tibcNum) * 100).toFixed(1));
+          tsatItem.value = String(sat);
+          tsatItem.numericValue = sat;
+          if (sat < 20.0) {
+            tsatItem.status = 'low';
+          } else if (sat > 50.0) {
+            tsatItem.status = 'high';
+          } else {
+            tsatItem.status = 'normal';
+          }
+        }
+      }
+    }
+
+    // Auto-calculate Indirect Bilirubin (mg/dL) if Total Bilirubin or Direct Bilirubin changed
+    if (lowerParamName.includes('bilirubin')) {
+      const totalBili = updated.find((r) => r.name.toLowerCase().includes('total bilirubin') || r.name.toLowerCase() === 'bilirubin total');
+      const directBili = updated.find((r) => r.name.toLowerCase().includes('direct bilirubin') || r.name.toLowerCase() === 'bilirubin direct');
+      const indirectBili = updated.find((r) => r.name.toLowerCase().includes('indirect bilirubin') || r.name.toLowerCase() === 'bilirubin indirect');
+
+      if (totalBili && directBili && indirectBili) {
+        const totNum = parseFloat(totalBili.value);
+        const dirNum = parseFloat(directBili.value);
+        if (!isNaN(totNum) && !isNaN(dirNum)) {
+          const indVal = Math.max(0, Number((totNum - dirNum).toFixed(2)));
+          indirectBili.value = String(indVal);
+          indirectBili.numericValue = indVal;
+          if (indVal > 0.8) {
+            indirectBili.status = 'high';
+          } else {
+            indirectBili.status = 'normal';
+          }
+        }
       }
     }
 
@@ -520,48 +610,173 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
           </div>
 
           {/* Section 2: Test Catalog Selection */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                2. Select Diagnostic Test Profiles
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedTestCodes.length} panel(s) selected
-              </span>
+          <div className="space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                  <span>2. Select Diagnostic Test Profiles</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                    {selectedTestCodes.length} selected
+                  </span>
+                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Click to add or remove test profiles. Selected test parameters load automatically.
+                </p>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search 95+ tests (e.g. CBC, ESR, Culture, Lipase, APTT)..."
+                  value={testSearchQuery}
+                  onChange={(e) => setTestSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                />
+                {testSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setTestSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {templates.map((t) => {
-                const isSelected = selectedTestCodes.includes(t.testCode);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggleTest(t.testCode)}
-                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all flex items-center gap-2 ${
-                      isSelected
-                        ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-700 dark:text-blue-300 shadow-xs'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                    }`}
-                  >
-                    <div
-                      className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border ${
+            {/* Category Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin text-xs">
+              {[
+                'All',
+                'Biochemistry',
+                'Hematology',
+                'Coagulation',
+                'Microbiology',
+                'Molecular Diagnostics',
+                'Endocrinology',
+                'Serology',
+                'Immunology',
+                'Infectious Diseases',
+                'Histopathology',
+                'Clinical Pathology',
+              ].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setTestCategoryFilter(cat)}
+                  className={`px-2.5 py-1 rounded-lg font-medium shrink-0 transition-colors ${
+                    testCategoryFilter === cat
+                      ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Selected Tests Summary Bar */}
+            {selectedTestCodes.length > 0 && (
+              <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-blue-900 dark:text-blue-300 mr-1">
+                  Active Panels:
+                </span>
+                {selectedTestCodes.map((code) => {
+                  const tmpl = templates.find((t) => t.testCode === code);
+                  return (
+                    <span
+                      key={code}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-[11px] font-medium text-slate-800 dark:text-slate-200 shadow-2xs"
+                    >
+                      <span>{tmpl ? tmpl.testName : code}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleTest(code)}
+                        className="text-slate-400 hover:text-rose-500 font-bold ml-0.5"
+                        title="Remove panel"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Filtered Test Buttons Grid */}
+            <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto p-1 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50/40 dark:bg-slate-850/40">
+              {templates
+                .filter((t) => {
+                  const matchesCat =
+                    testCategoryFilter === 'All' ? true : t.category === testCategoryFilter;
+                  const q = testSearchQuery.toLowerCase().trim();
+                  const matchesSearch =
+                    !q ||
+                    t.testName.toLowerCase().includes(q) ||
+                    t.testCode.toLowerCase().includes(q) ||
+                    t.category.toLowerCase().includes(q) ||
+                    t.sampleType.toLowerCase().includes(q) ||
+                    t.parameters.some((p) => p.name.toLowerCase().includes(q));
+                  return matchesCat && matchesSearch;
+                })
+                .map((t) => {
+                  const isSelected = selectedTestCodes.includes(t.testCode);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => toggleTest(t.testCode)}
+                      className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all flex items-center gap-2 text-left ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-600 text-white'
-                          : 'border-slate-400'
+                          ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-700 dark:text-blue-300 shadow-xs ring-1 ring-blue-500/20'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750'
                       }`}
                     >
-                      {isSelected && <CheckCircle className="w-2.5 h-2.5" />}
-                    </div>
-                    <span>{t.testName}</span>
-                    <span className="font-mono text-[11px] opacity-70">₹{t.price}</span>
-                  </button>
+                      <div
+                        className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border shrink-0 ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-slate-400'
+                        }`}
+                      >
+                        {isSelected && <CheckCircle className="w-2.5 h-2.5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate max-w-[260px] sm:max-w-[320px]">{t.testName}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[260px]">
+                          {t.category} • {t.sampleType.split('(')[0].trim()}
+                        </div>
+                      </div>
+                      <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-400 shrink-0 ml-auto">
+                        ₹{t.price}
+                      </span>
+                    </button>
+                  );
+                })}
+              {templates.filter((t) => {
+                const matchesCat =
+                  testCategoryFilter === 'All' ? true : t.category === testCategoryFilter;
+                const q = testSearchQuery.toLowerCase().trim();
+                return (
+                  matchesCat &&
+                  (!q ||
+                    t.testName.toLowerCase().includes(q) ||
+                    t.testCode.toLowerCase().includes(q) ||
+                    t.category.toLowerCase().includes(q) ||
+                    t.sampleType.toLowerCase().includes(q) ||
+                    t.parameters.some((p) => p.name.toLowerCase().includes(q)))
                 );
-              })}
+              }).length === 0 && (
+                <div className="w-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                  No tests match &quot;{testSearchQuery}&quot;. Try a different search term or category.
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Section 3: Interactive Parameter Values Grid */}
+          {/* Section 3: Interactive Parameter Values & Histopathology Panel */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
@@ -572,78 +787,310 @@ export const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
               </span>
             </div>
 
-            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="py-2.5 px-3">Investigation</th>
-                    <th className="py-2.5 px-3 w-32">Patient Result</th>
-                    <th className="py-2.5 px-3 w-28">Status / Flag</th>
-                    <th className="py-2.5 px-3 w-20">Unit</th>
-                    <th className="py-2.5 px-3">Biological Ref. Range</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                  {results.map((r, idx) => (
-                    <tr key={r.parameterId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                      <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
-                        <div>{r.name}</div>
-                        {r.category && (
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {r.category}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3">
-                        <input
-                          id={`param-result-input-${idx}`}
-                          type="text"
-                          value={r.value}
-                          onChange={(e) => handleParameterValueChange(idx, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const nextInput = document.getElementById(`param-result-input-${idx + 1}`);
-                              if (nextInput) {
-                                (nextInput as HTMLInputElement).focus();
-                                (nextInput as HTMLInputElement).select?.();
-                              }
-                            }
-                          }}
-                          className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono font-semibold text-slate-900 dark:text-slate-100 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="py-2 px-3">
-                        <select
-                          value={r.status}
-                          onChange={(e) => handleStatusChange(idx, e.target.value as ParameterFlag)}
-                          className={`w-full px-2 py-1 rounded-lg text-xs font-bold border ${
-                            r.status === 'normal'
-                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                              : r.status === 'low'
-                              ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                              : r.status === 'high'
-                              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+            {/* Standard Numeric & Qualitative Laboratory Tests Table */}
+            {results.filter((r) => r.category !== 'Histopathology').length > 0 && (
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="py-2.5 px-3">Investigation</th>
+                      <th className="py-2.5 px-3 w-44">Patient Result</th>
+                      <th className="py-2.5 px-3 w-28">Status / Flag</th>
+                      <th className="py-2.5 px-3 w-20">Unit</th>
+                      <th className="py-2.5 px-3">Biological Ref. Range</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                    {results
+                      .filter((r) => r.category !== 'Histopathology')
+                      .map((r) => {
+                        const originalIdx = results.findIndex((item) => item.parameterId === r.parameterId);
+                        const refLower = (r.refRangeText || '').toLowerCase();
+                        const hasDetectedOption = refLower.includes('detected');
+                        const hasReactiveOption = refLower.includes('reactive');
+                        const hasPositiveOption = refLower.includes('positive');
+                        const hasValidOption = refLower.includes('valid');
+
+                        return (
+                          <tr key={r.parameterId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                            <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
+                              <div>{r.name}</div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                                {r.category && <span>{r.category}</span>}
+                                {r.method && <span className="text-slate-400">• {r.method}</span>}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3">
+                              <input
+                                id={`param-result-input-${originalIdx}`}
+                                type="text"
+                                value={r.value}
+                                onChange={(e) => handleParameterValueChange(originalIdx, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const nextInput = document.getElementById(`param-result-input-${originalIdx + 1}`);
+                                    if (nextInput) {
+                                      (nextInput as HTMLInputElement).focus();
+                                      (nextInput as HTMLInputElement).select?.();
+                                    }
+                                  }
+                                }}
+                                className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono font-semibold text-slate-900 dark:text-slate-100 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                              />
+                              {/* Quick Qualitative Action Pills */}
+                              {(hasDetectedOption || hasReactiveOption || hasPositiveOption || hasValidOption) && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {hasDetectedOption && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleParameterValueChange(originalIdx, 'Not Detected')}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                          r.value === 'Not Detected'
+                                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-400'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
+                                        }`}
+                                      >
+                                        Not Detected
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleParameterValueChange(originalIdx, 'Detected')}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                          r.value === 'Detected'
+                                            ? 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-400'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-rose-50'
+                                        }`}
+                                      >
+                                        Detected
+                                      </button>
+                                    </>
+                                  )}
+                                  {hasReactiveOption && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleParameterValueChange(originalIdx, 'Non-Reactive')}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                          r.value === 'Non-Reactive'
+                                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-400'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
+                                        }`}
+                                      >
+                                        Non-Reactive
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleParameterValueChange(originalIdx, 'Reactive')}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                          r.value === 'Reactive'
+                                            ? 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-400'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-rose-50'
+                                        }`}
+                                      >
+                                        Reactive
+                                      </button>
+                                    </>
+                                  )}
+                                  {!hasDetectedOption && hasPositiveOption && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleParameterValueChange(originalIdx, 'Negative')}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                          r.value === 'Negative'
+                                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-400'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-emerald-50'
+                                        }`}
+                                      >
+                                        Negative
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleParameterValueChange(originalIdx, 'Positive')}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                          r.value === 'Positive'
+                                            ? 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-400'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-rose-50'
+                                        }`}
+                                      >
+                                        Positive
+                                      </button>
+                                    </>
+                                  )}
+                                  {hasValidOption && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleParameterValueChange(originalIdx, 'Valid')}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                        r.value === 'Valid'
+                                          ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-400'
+                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-blue-50'
+                                      }`}
+                                    >
+                                      Valid
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2 px-3">
+                              <select
+                                value={r.status}
+                                onChange={(e) => handleStatusChange(originalIdx, e.target.value as ParameterFlag)}
+                                className={`w-full px-2 py-1 rounded-lg text-xs font-bold border ${
+                                  r.status === 'normal'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                    : r.status === 'low'
+                                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                    : r.status === 'high'
+                                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                }`}
+                              >
+                                <option value="normal">Normal</option>
+                                <option value="low">▼ Low</option>
+                                <option value="high">▲ High</option>
+                                <option value="critical">🚨 Critical</option>
+                              </select>
+                            </td>
+                            <td className="py-2 px-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                              {r.unit || '-'}
+                            </td>
+                            <td className="py-2 px-3 text-slate-600 dark:text-slate-300 text-[11px]">
+                              {r.refRangeText || '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Dedicated Histopathology / Surgical Pathology Examination Panel */}
+            {results.filter((r) => r.category === 'Histopathology').length > 0 && (
+              <div className="mt-4 p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/70 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                      <Microscope className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
+                        Histopathology & Surgical Pathology Examination
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Enter clinical history, gross findings, microscopic details, and definitive histopathological diagnosis
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rapid Biopsy Narrative Helpers */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-slate-400 text-[11px]">Quick Preset:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const diagIdx = results.findIndex((r) => r.category === 'Histopathology' && r.name.toLowerCase().includes('diagnosis'));
+                        const grossIdx = results.findIndex((r) => r.category === 'Histopathology' && r.name.toLowerCase().includes('gross'));
+                        const microIdx = results.findIndex((r) => r.category === 'Histopathology' && r.name.toLowerCase().includes('microscopic'));
+                        if (grossIdx >= 0 && !results[grossIdx].value) {
+                          handleParameterValueChange(grossIdx, 'Received a single container labeled with patient identification, containing tissue fragments fixed in 10% neutral buffered formalin.');
+                        }
+                        if (microIdx >= 0 && !results[microIdx].value) {
+                          handleParameterValueChange(microIdx, 'Sections examined show preserved tissue architecture with no cellular atypia or nuclear pleomorphism. Mitotic activity is not increased. Surrounding fibrocollagenous stroma is unremarkable. No evidence of granuloma, dysplasia, or malignancy.');
+                        }
+                        if (diagIdx >= 0 && !results[diagIdx].value) {
+                          handleParameterValueChange(diagIdx, 'BENIGN HISTOPATHOLOGICAL FEATURES. NO EVIDENCE OF DYSPLASIA OR MALIGNANCY.');
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-[11px] hover:border-blue-400"
+                    >
+                      Benign Finding
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const diagIdx = results.findIndex((r) => r.category === 'Histopathology' && r.name.toLowerCase().includes('diagnosis'));
+                        const microIdx = results.findIndex((r) => r.category === 'Histopathology' && r.name.toLowerCase().includes('microscopic'));
+                        if (microIdx >= 0 && !results[microIdx].value) {
+                          handleParameterValueChange(microIdx, 'Sections studied show subepithelial stroma infiltrated predominantly by mature lymphocytes, plasma cells, and scattered histiocytes. Vascular congestion with stromal edema noted. No cellular atypia or dysplasia identified.');
+                        }
+                        if (diagIdx >= 0 && !results[diagIdx].value) {
+                          handleParameterValueChange(diagIdx, 'FEATURES ARE CONSISTENT WITH CHRONIC NON-SPECIFIC INFLAMMATION.');
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-[11px] hover:border-blue-400"
+                    >
+                      Chronic Inflammation
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  {results
+                    .filter((r) => r.category === 'Histopathology')
+                    .map((r) => {
+                      const originalIdx = results.findIndex((item) => item.parameterId === r.parameterId);
+                      const isDiagnosis = r.name.toLowerCase().includes('diagnosis');
+                      const isMicro = r.name.toLowerCase().includes('microscopic');
+                      const isGross = r.name.toLowerCase().includes('gross');
+                      const isSite = r.name.toLowerCase().includes('site') || r.name.toLowerCase().includes('specimen');
+
+                      return (
+                        <div
+                          key={r.parameterId}
+                          className={`p-3 rounded-xl border transition ${
+                            isDiagnosis
+                              ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 shadow-xs'
+                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                           }`}
                         >
-                          <option value="normal">Normal</option>
-                          <option value="low">▼ Low</option>
-                          <option value="high">▲ High</option>
-                          <option value="critical">🚨 Critical</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                        {r.unit || '-'}
-                      </td>
-                      <td className="py-2 px-3 text-slate-600 dark:text-slate-300 text-[11px]">
-                        {r.refRangeText || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              <span className={isDiagnosis ? 'text-rose-600 font-extrabold' : 'text-blue-600'}>▶</span>
+                              <span>{r.name}</span>
+                              {isDiagnosis && (
+                                <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                  Primary Diagnosis
+                                </span>
+                              )}
+                            </label>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {r.refRangeText || 'Narrative finding'}
+                            </span>
+                          </div>
+
+                          <textarea
+                            id={`param-result-textarea-${originalIdx}`}
+                            rows={isMicro ? 4 : isDiagnosis ? 3 : isGross ? 3 : 2}
+                            value={r.value}
+                            onChange={(e) => handleParameterValueChange(originalIdx, e.target.value)}
+                            placeholder={
+                              isDiagnosis
+                                ? 'Enter definitive histopathological diagnosis (e.g. Infiltrating ductal carcinoma / Benign tubular adenoma / Chronic gastritis...)'
+                                : isMicro
+                                ? 'Describe histological architecture, cellular features, nuclear atypia, mitotic activity, stroma, margins...'
+                                : isGross
+                                ? 'Describe specimen appearance, dimensions, number of fragments, color, consistency...'
+                                : isSite
+                                ? 'e.g. Endoscopic gastric biopsy / Skin punch biopsy 4mm right forearm...'
+                                : 'Enter clinical observations or histological findings...'
+                            }
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-medium border focus:outline-hidden focus:ring-2 focus:ring-blue-500 ${
+                              isDiagnosis
+                                ? 'border-rose-300 dark:border-rose-800 bg-rose-50/30 dark:bg-slate-900 font-semibold text-rose-950 dark:text-rose-100'
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100'
+                            }`}
+                          />
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 4: Clinical Impression Presets & Notes */}

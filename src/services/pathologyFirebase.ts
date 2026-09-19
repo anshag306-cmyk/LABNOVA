@@ -8,6 +8,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -16,6 +17,7 @@ import {
   getDocFromServer,
   Firestore,
 } from 'firebase/firestore';
+import QRCode from 'qrcode';
 import firebaseConfig from '../../firebase-applet-config.json';
 import {
   PathologyPatient,
@@ -56,12 +58,77 @@ export const firestoreDb: Firestore = getFirestore(
 export const DEFAULT_LAB_ID = 'lab-nova-main';
 export const PATIENTS_COLLECTION = 'pathology_patients';
 export const REPORTS_COLLECTION = 'pathology_reports';
+export const PUBLIC_REPORTS_COLLECTION = 'public_reports';
 export const TEMPLATES_COLLECTION = 'pathology_test_templates';
 export const SETTINGS_COLLECTION = 'pathology_settings';
 export const LABS_COLLECTION = 'laboratories';
 export const LAB_USERS_COLLECTION = 'lab_users';
 export const USERS_COLLECTION = 'users';
 export const HOME_BOOKINGS_COLLECTION = 'home_sample_bookings';
+
+// Cryptographically secure token generator for public online reports
+export function generateSecureReportToken(): string {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const array = new Uint8Array(16);
+      crypto.getRandomValues(array);
+      const hex = Array.from(array)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      return `lnr_${hex}`;
+    }
+  } catch (_e) {
+    // fallback below
+  }
+  let s = '';
+  for (let i = 0; i < 32; i++) {
+    s += Math.floor(Math.random() * 16).toString(16);
+  }
+  return `lnr_${s}`;
+}
+
+export function getReportPublicUrl(token: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://labnova.com';
+  return `${origin}/report/${token}`;
+}
+
+export async function generateQrDataUrl(text: string): Promise<string> {
+  try {
+    return await QRCode.toDataURL(text, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 256,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff',
+      },
+    });
+  } catch (err) {
+    console.warn('Failed to generate QR data URL:', err);
+    return '';
+  }
+}
+
+// Ensure initial seed reports have secure public tokens and published status
+const seededNovaReports = INITIAL_PATHOLOGY_REPORTS.map((r, idx) => {
+  const token = r.reportPublicToken || `lnr_init_${idx + 1}_94e2b0f31d684e2a15c90b7e412`;
+  return {
+    ...r,
+    reportPublicToken: token,
+    reportPublicUrl: getReportPublicUrl(token),
+    isPublished: r.isPublished !== false,
+  };
+});
+
+const seededApexReports = INITIAL_APEX_REPORTS.map((r, idx) => {
+  const token = r.reportPublicToken || `lnr_apex_${idx + 1}_38c7f1a0e9b42d658c19a4e3b21`;
+  return {
+    ...r,
+    reportPublicToken: token,
+    reportPublicUrl: getReportPublicUrl(token),
+    isPublished: r.isPublished !== false,
+  };
+});
 
 // In-memory fallback / cache in case of initial hydration or offline preview
 let cachedPatientsMap: Record<string, PathologyPatient[]> = {
@@ -70,8 +137,8 @@ let cachedPatientsMap: Record<string, PathologyPatient[]> = {
 };
 
 let cachedReportsMap: Record<string, PathologyReport[]> = {
-  [DEFAULT_LAB_ID]: [...INITIAL_PATHOLOGY_REPORTS],
-  'lab-apex-diag': [...INITIAL_APEX_REPORTS],
+  [DEFAULT_LAB_ID]: seededNovaReports,
+  'lab-apex-diag': seededApexReports,
 };
 
 let cachedHomeBookingsMap: Record<string, HomeSampleBooking[]> = {
@@ -1734,6 +1801,97 @@ export async function getReportForVerification(
     return null;
   } catch (err) {
     console.error('Error retrieving report for verification:', err);
+    return null;
+  }
+}
+
+/**
+ * Retrieves all diagnostic reports for a patient reporting record (e.g. CBC, KFT, LFT for same patient/date)
+ * using a secure patient token, UHID, or report accession identifier.
+ */
+export async function getPatientReportingRecord(
+  tokenOrIdentifier: string
+): Promise<{ reports: PathologyReport[]; primaryReport: PathologyReport; lab?: Laboratory } | null> {
+  try {
+    const clean = tokenOrIdentifier.trim();
+    let patientUHID = '';
+    let targetDate = '';
+
+    // Check if it's an encoded patient token (e.g. base64 PLR_...)
+    if (clean.startsWith('PLR_')) {
+      const parts = clean.split('_');
+      patientUHID = parts[1] || '';
+      targetDate = parts[2] || '';
+    } else {
+      try {
+        const decoded = atob(clean.replace(/-/g, '+').replace(/_/g, '/'));
+        if (decoded.startsWith('PLR_')) {
+          const parts = decoded.split('_');
+          patientUHID = parts[1] || '';
+          targetDate = parts[2] || '';
+        }
+      } catch {
+        // Not base64
+      }
+    }
+
+    // First try single report verification lookup to anchor the patient
+    const singleResult = await getReportForVerification(clean);
+    if (singleResult && singleResult.report) {
+      const anchorReport = singleResult.report;
+      patientUHID = anchorReport.patientUHID || patientUHID;
+      const targetPatientId = anchorReport.patientId;
+      const lab = singleResult.lab;
+
+      // Find all reports for this patient
+      const allReports: PathologyReport[] = [anchorReport];
+      for (const labId of Object.keys(cachedReportsMap)) {
+        for (const r of cachedReportsMap[labId]) {
+          if (
+            r.id !== anchorReport.id &&
+            ((r.patientUHID && r.patientUHID === patientUHID) || (r.patientId && r.patientId === targetPatientId))
+          ) {
+            allReports.push(r);
+          }
+        }
+      }
+
+      return {
+        reports: allReports,
+        primaryReport: anchorReport,
+        lab,
+      };
+    }
+
+    // If searched by UHID directly
+    if (patientUHID || clean.startsWith('UHID-')) {
+      const searchUhid = patientUHID || clean;
+      const matchingReports: PathologyReport[] = [];
+      let matchedLab: Laboratory | undefined;
+
+      for (const labId of Object.keys(cachedReportsMap)) {
+        for (const r of cachedReportsMap[labId]) {
+          if (r.patientUHID === searchUhid) {
+            matchingReports.push(r);
+            if (!matchedLab) {
+              matchedLab = cachedLabs.find((l) => l.id === r.labId);
+            }
+          }
+        }
+      }
+
+      if (matchingReports.length > 0) {
+        return {
+          reports: matchingReports,
+          primaryReport: matchingReports[0],
+          lab: matchedLab,
+        };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Error fetching patient reporting record:', err);
     return null;
   }
 }

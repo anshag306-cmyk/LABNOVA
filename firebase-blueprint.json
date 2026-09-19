@@ -97,6 +97,10 @@
         "totalAmount": { "type": "number", "description": "Total billing amount" },
         "paidAmount": { "type": "number", "description": "Paid amount" },
         "paymentStatus": { "type": "string", "enum": ["paid", "pending", "partial"] },
+        "reportPublicToken": { "type": "string", "description": "Secure non-sequential random token for public online QR report access" },
+        "reportPublicUrl": { "type": "string", "description": "Full online public verification URL" },
+        "qrCodeData": { "type": "string", "description": "Base64 data URL or encoded QR string" },
+        "isPublished": { "type": "boolean", "description": "Administrative toggle for public online report access (true = ON, false = OFF)" },
         "createdAt": { "type": "string", "description": "Creation ISO date" },
         "updatedAt": { "type": "string", "description": "Last modified ISO date" }
       },
